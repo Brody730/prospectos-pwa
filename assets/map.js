@@ -116,22 +116,42 @@ PWA.Mapa = {
   },
 
   cargarProspectosEnMapa: function() {
-  // Si ya hay prospectos en state, usarlos directo
+  // 1. Ya hay datos en state → usarlos directo
   if (PWA.state.prospectos && PWA.state.prospectos.length > 0) {
+    console.log('[Mapa] Usando prospectos desde state:', PWA.state.prospectos.length);
     PWA.Mapa.pintarPins(PWA.state.prospectos);
     return;
   }
 
-  // Si no hay datos, cargarlos desde la API
-  PWA.apiPost('api/prospectos.php', {
-    option: 'TraerProspectos',
-    filtro: 'todos',
-    limit: 200
-  }, function(err, data) {
-    if (!err && data && data.result && data.contenido) {
-      PWA.state.prospectos = data.contenido;
-      PWA.Mapa.pintarPins(data.contenido);
+  // 2. Intentar cache offline (IndexedDB)
+  SyncDB.leerProspectosCache(function(items) {
+    if (items && items.length > 0) {
+      console.log('[Mapa] Usando prospectos desde cache offline:', items.length);
+      PWA.state.prospectos = items; // hidrata el state para próximas vistas
+      PWA.Mapa.pintarPins(items);
+      return;
     }
+
+    // 3. Último recurso: fetch directo a la API
+    console.log('[Mapa] Cache vacío, cargando desde API...');
+    PWA.apiPost('api/prospectos.php', {
+      option: 'TraerProspectos',
+      filtro: 'todos',
+      limit: 200
+    }, function(err, data) {
+      if (err) {
+        console.error('[Mapa] Error al cargar prospectos:', err);
+        return;
+      }
+      if (data && data.result && data.contenido && data.contenido.length > 0) {
+        console.log('[Mapa] Prospectos cargados desde API:', data.contenido.length);
+        PWA.state.prospectos = data.contenido;
+        SyncDB.guardarProspectosCache(data.contenido);
+        PWA.Mapa.pintarPins(data.contenido);
+      } else {
+        console.warn('[Mapa] API no devolvió prospectos');
+      }
+    });
   });
 },
 
