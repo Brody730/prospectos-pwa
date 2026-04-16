@@ -1,10 +1,11 @@
 <?php
 $funcion = 9946;
 $PageSecurity = 3;
-$rootDir = dirname(dirname(__FILE__));
-$PathPrefix = $rootDir . '/';
 
+$rootDir = '/var/www/html/erpdistribucion_CAPA';
+$PathPrefix = $rootDir . '/';
 chdir($rootDir);
+
 include($PathPrefix . 'config.php');
 
 if (isset($SessionSavePath)) {
