@@ -170,7 +170,7 @@ PWA.cerrarSesion = function() {
   if (!confirm('¿Cerrar sesión?')) return;
   fetch('/erpdistribucion/Logout.php', { credentials: 'same-origin' })
     .finally(function() {
-      window.location.href = '/erpdistribucion/prospectos/';
+      window.location.href = '/prospectos/';
     });
 };
 

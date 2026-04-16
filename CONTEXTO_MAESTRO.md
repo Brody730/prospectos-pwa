@@ -28,7 +28,7 @@ Trabajo con Claude (para arquitectura y prompts) y Codex (para ejecutar código)
 /var/www/html/erpdistribucion/
 
 # URL producción
-https://erprogmai.portalito.com/erpdistribucion/prospectos/
+https://erprogmai.portalito.com/prospectos/
 
 # ERP desktop original (NO TOCAR)
 https://erprogmai.portalito.com/erpdistribucion/paneldecontrolprospectos.php
@@ -58,7 +58,7 @@ Probar en browser
 
 ### Qué estamos construyendo
 PWA mobile-first para vendedores de campo del ERP ROGMAI.
-Ruta: `/erpdistribucion/prospectos/`
+Ruta: `/prospectos/`
 
 ### Usuario objetivo
 Vendedores de campo con celulares desde iPhone mini hasta Android 5.x viejito.
@@ -332,7 +332,7 @@ ORDER BY pm.u_movimiento DESC
 - sw.js fetch handler corregido:
   - tile.openstreetmap.org → no interceptar (return sin respondWith)
   - cdnjs.cloudflare.com → cache first
-  - /erpdistribucion/prospectos/ → network first, cache fallback
+  - /prospectos/ → network first, cache fallback
   - cualquier otra URL externa → no interceptar
 - Commit: fix(pwa): avoid sw fetch undefined responses for external map tiles
 
@@ -392,7 +392,7 @@ JSON ya es limpio, el error viene del DB_query.
 
 **Fetch de diagnóstico:**
 ```js
-fetch('/erpdistribucion/prospectos/api/prospectos.php', {
+fetch('/prospectos/api/prospectos.php', {
   method:'POST', headers:{'Content-Type':'application/json'},
   credentials:'same-origin',
   body: JSON.stringify({ option:'TraerProspectos', busqueda:'Colegio' })

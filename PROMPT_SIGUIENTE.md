@@ -14,7 +14,7 @@
   "Compartir → Añadir a pantalla de inicio" con 2 segundos de delay.
 - **Inyectado en:** `includes/footer.inc` (ambas ramas ShowIndex==0 y ==1) y
   `prospectos/index.php` (después de app.js).
-- Registra el SW `/erpdistribucion/prospectos/sw.js` desde cualquier página del ERP.
+- Registra el SW `/prospectos/sw.js` desde cualquier página del ERP.
 
 ### 2. Agenda — ícono vacío (TAREA 1B)
 - Reemplazado `📅` (mostraba "July 17" en iOS/Android base) por SVG inline neutro
@@ -72,7 +72,7 @@ Verificar:
 
 Para probar `ProspectosNecesitanAtencion` desde consola:
 ```javascript
-fetch('/erpdistribucion/prospectos/api/agenda.php', {
+fetch('/prospectos/api/agenda.php', {
   method: 'POST',
   headers: {'Content-Type': 'application/json'},
   credentials: 'same-origin',
@@ -146,7 +146,7 @@ prospectos/assets/app.js         ← empty state + cargarNecesitanAtencion
 ```
 Local:    ~/ERP-GITHUB-VERSIONADO/erpdistribucion/
 Servidor: /var/www/html/erpdistribucion/
-URL:      https://erprogmai.portalito.com/erpdistribucion/prospectos/
+URL:      https://erprogmai.portalito.com/prospectos/
 
 PHP 5 — addslashes(), DB_query(), DB_fetch_array(), session.inc
 Vanilla JS ES6 — sin npm, sin frameworks

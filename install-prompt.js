@@ -19,8 +19,8 @@
 
   // Registrar Service Worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/erpdistribucion/prospectos/sw.js', {
-      scope: '/erpdistribucion/prospectos/'
+    navigator.serviceWorker.register('/prospectos/sw.js', {
+      scope: '/prospectos/'
     }).catch(function() {});
   }
 

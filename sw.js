@@ -5,11 +5,11 @@
 var CACHE_NAME = 'prospectos-v1';
 
 var ASSETS_CACHE = [
-  '/erpdistribucion/prospectos/',
-  '/erpdistribucion/prospectos/assets/app.css',
-  '/erpdistribucion/prospectos/assets/app.js',
-  '/erpdistribucion/prospectos/assets/sync.js',
-  '/erpdistribucion/prospectos/assets/map.js',
+  '/prospectos/',
+  '/prospectos/assets/app.css',
+  '/prospectos/assets/app.js',
+  '/prospectos/assets/sync.js',
+  '/prospectos/assets/map.js',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'
 ];
@@ -100,7 +100,7 @@ self.addEventListener('fetch', function(e) {
     return;
   }
 
-  if (url.indexOf('/erpdistribucion/prospectos/') === -1) {
+  if (url.indexOf('/prospectos/') === -1) {
     return;
   }
 
