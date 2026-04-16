@@ -1,0 +1,31 @@
+{
+  "name": "ROGMAI Prospectos",
+  "short_name": "Prospectos",
+  "description": "Panel de prospectos para vendedores de campo",
+  "start_url": "/erpdistribucion/prospectos/",
+  "scope": "/erpdistribucion/prospectos/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1117",
+  "theme_color": "#4f8ef7",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230f1117'/%3E%3Ccircle cx='256' cy='256' r='170' fill='%234f8ef7'/%3E%3Cpath d='M210 156h67c58 0 90 27 90 76 0 36-18 60-51 70l63 54h-65l-56-49h-18v49h-50V156zm50 41v70h20c24 0 38-13 38-35 0-23-14-35-40-35h-18z' fill='white'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
