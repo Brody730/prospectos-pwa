@@ -156,35 +156,42 @@ PWA.Mapa = {
 },
 
   pintarPins: function(prospectos) {
-    if (!PWA.Mapa.markersLayer) return;
-    PWA.Mapa.markersLayer.clearLayers();
+  if (!PWA.Mapa.markersLayer) return;
+  PWA.Mapa.markersLayer.clearLayers();
 
-    prospectos.forEach(function(p) {
-      // Si hay pins y es la primera carga (sin GPS aún), hacer fitBounds
-        if (PWA.Mapa.markersLayer.getLayers().length > 0 && !PWA.Mapa.miPosicion) {
-          var bounds = L.featureGroup(PWA.Mapa.markersLayer.getLayers()).getBounds();
-          PWA.Mapa.map.fitBounds(bounds.pad(0.1));
-        }
-      var lat = 0, lng = 0;
-      if (p.latitude && p.longitude) {
-        lat = parseFloat(p.latitude);
-        lng = parseFloat(p.longitude);
-      } else if (p.link_google_map) {
-        var coords = p.link_google_map.split(',');
-        lat = parseFloat(coords[0]);
-        lng = parseFloat(coords[1]);
-      }
-      if (!lat || !lng) return;
+  var pintados = 0;
 
-      var color = PWA.Mapa.colorPorEstado(p);
-      var pin   = PWA.Mapa.crearPin(color);
-      var nombre = p.prospecto || p.nombre || p.DebtorName || 'Prospecto';
+  prospectos.forEach(function(p) {
+    var lat = 0, lng = 0;
+    if (p.latitude && p.longitude) {
+      lat = parseFloat(p.latitude);
+      lng = parseFloat(p.longitude);
+    } else if (p.link_google_map) {
+      var coords = p.link_google_map.split(',');
+      lat = parseFloat(coords[0]);
+      lng = parseFloat(coords[1]);
+    }
+    if (!lat || !lng) return;
 
-      var marker = L.marker([lat, lng], { icon: pin })
-        .bindPopup('<strong>' + nombre + '</strong><br><button onclick="PWA.Detalle.abrir(\'' + p.u_movimiento + '\')" style="margin-top:6px;padding:4px 10px;background:#4f8ef7;color:white;border:none;border-radius:6px;cursor:pointer">Ver detalle</button>')
-        .addTo(PWA.Mapa.markersLayer);
-    });
-  },
+    var color = PWA.Mapa.colorPorEstado(p);
+    var pin   = PWA.Mapa.crearPin(color);
+    var nombre = p.prospecto || p.nombre || p.DebtorName || 'Prospecto';
+
+    L.marker([lat, lng], { icon: pin })
+      .bindPopup('<strong>' + nombre + '</strong><br><button onclick="PWA.Detalle.abrir(\'' + p.u_movimiento + '\')" style="margin-top:6px;padding:4px 10px;background:#4f8ef7;color:white;border:none;border-radius:6px;cursor:pointer">Ver detalle</button>')
+      .addTo(PWA.Mapa.markersLayer);
+
+    pintados++;
+  });
+
+  console.log('[Mapa] Pins pintados:', pintados, 'de', prospectos.length);
+
+  // fitBounds UNA SOLA VEZ al final, solo si hay pins y aún no hay GPS fijado
+  if (pintados > 0 && !PWA.Mapa.miPosicion) {
+    var bounds = L.featureGroup(PWA.Mapa.markersLayer.getLayers()).getBounds();
+    PWA.Mapa.map.fitBounds(bounds.pad(0.1));
+  }
+}
 
   actualizarListaCercanos: function(miLat, miLng) {
     var listEl = document.getElementById('mapaListaItems');
