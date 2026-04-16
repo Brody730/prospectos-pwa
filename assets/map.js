@@ -132,8 +132,15 @@ PWA.Mapa = {
     PWA.Mapa.markersLayer.clearLayers();
 
     prospectos.forEach(function(p) {
-      var lat = parseFloat(p.latitude  || p.lat || 0);
-      var lng = parseFloat(p.longitude || p.lng || 0);
+      var lat = 0, lng = 0;
+      if (p.latitude && p.longitude) {
+        lat = parseFloat(p.latitude);
+        lng = parseFloat(p.longitude);
+      } else if (p.link_google_map) {
+        var coords = p.link_google_map.split(',');
+        lat = parseFloat(coords[0]);
+        lng = parseFloat(coords[1]);
+      }
       if (!lat || !lng) return;
 
       var color = PWA.Mapa.colorPorEstado(p);
@@ -165,10 +172,11 @@ PWA.Mapa = {
     }
 
     var conGeo = prospectos.filter(function(p) {
-      return parseFloat(p.latitude || p.lat) && parseFloat(p.longitude || p.lng);
+      return (parseFloat(p.latitude) && parseFloat(p.longitude)) || !!p.link_google_map;
     }).map(function(p) {
-      var lat = parseFloat(p.latitude || p.lat);
-      var lng = parseFloat(p.longitude || p.lng);
+      var coords2 = (p.link_google_map || '').split(',');
+      var lat = parseFloat(p.latitude) || parseFloat(coords2[0]);
+      var lng = parseFloat(p.longitude) || parseFloat(coords2[1]);
       return { p: p, dist: distKm(miLat, miLng, lat, lng) };
     }).sort(function(a, b) { return a.dist - b.dist; }).slice(0, 5);
 

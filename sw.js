@@ -44,9 +44,27 @@ self.addEventListener('fetch', function(e) {
   var url = e.request.url;
   var requestUrl = new URL(url);
 
-  if (requestUrl.hostname === 'tile.openstreetmap.org') {
-    return;
-  }
+    // Después — cachea tiles OSM (cache first):
+    if (requestUrl.hostname === 'tile.openstreetmap.org' ||
+        requestUrl.hostname === 'a.tile.openstreetmap.org' ||
+        requestUrl.hostname === 'b.tile.openstreetmap.org' ||
+        requestUrl.hostname === 'c.tile.openstreetmap.org') {
+      e.respondWith(
+        caches.match(e.request).then(function(cached) {
+          if (cached) return cached;
+          return fetch(e.request).then(function(resp) {
+            var clone = resp.clone();
+            caches.open('osm-tiles-v1').then(function(cache) {
+              cache.put(e.request, clone);
+            });
+            return resp;
+          }).catch(function() {
+            return cached;
+          });
+        })
+      );
+      return;
+    }
 
   // Las APIs siempre van a red; si falla → error (no cachear respuestas de API)
   if (url.indexOf('/prospectos/api/') !== -1) {
