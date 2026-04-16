@@ -2,7 +2,7 @@
 $funcion = 9946;
 $PageSecurity = 3;
 
-$rootDir = '/var/www/html/erpdistribucion_CAPA';
+$rootDir = '/var/www/html/erpdistribucion';
 $PathPrefix = $rootDir . '/';
 chdir($rootDir);
 
