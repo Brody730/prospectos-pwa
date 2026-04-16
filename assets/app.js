@@ -166,6 +166,14 @@ function irALista() {
   PWA.navegarA('lista');
 }
 
+PWA.cerrarSesion = function() {
+  if (!confirm('¿Cerrar sesión?')) return;
+  fetch('/erpdistribucion/Logout.php', { credentials: 'same-origin' })
+    .finally(function() {
+      window.location.href = '/erpdistribucion/prospectos/';
+    });
+};
+
 function aplicarFiltro(filtro) {
   filtroActual = filtro;
   prospectosOffset = 0;
@@ -1636,7 +1644,7 @@ PWA.Perfil = {
     html += '</div></div>';
 
     html += '<div style="margin-top:24px">';
-    html += '<a href="../index.php?logout=1" class="btn btn-ghost btn-full" style="color:var(--pwa-danger)">Cerrar sesión</a>';
+    html += '<button onclick="PWA.cerrarSesion()" class="btn btn-ghost btn-full" style="color:var(--pwa-danger)">Cerrar sesión</button>';
     html += '</div>';
 
     el.innerHTML = html;
