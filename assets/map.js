@@ -191,7 +191,7 @@ PWA.Mapa = {
     var bounds = L.featureGroup(PWA.Mapa.markersLayer.getLayers()).getBounds();
     PWA.Mapa.map.fitBounds(bounds.pad(0.1));
   }
-}
+},
 
   actualizarListaCercanos: function(miLat, miLng) {
     var listEl = document.getElementById('mapaListaItems');
