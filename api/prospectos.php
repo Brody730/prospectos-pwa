@@ -5,7 +5,7 @@ ob_start();
 
 session_start();
 
-$PathPrefix = '../../';
+$PathPrefix = '/var/www/html/erpdistribucion_CAPA/';
 include($PathPrefix . 'config.php');
 include($PathPrefix . 'includes/ConnectDB.inc');
 include($PathPrefix . 'includes/SQL_CommonFunctions.inc');
