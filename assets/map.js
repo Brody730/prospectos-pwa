@@ -160,6 +160,11 @@ PWA.Mapa = {
     PWA.Mapa.markersLayer.clearLayers();
 
     prospectos.forEach(function(p) {
+      // Si hay pins y es la primera carga (sin GPS aún), hacer fitBounds
+        if (PWA.Mapa.markersLayer.getLayers().length > 0 && !PWA.Mapa.miPosicion) {
+          var bounds = L.featureGroup(PWA.Mapa.markersLayer.getLayers()).getBounds();
+          PWA.Mapa.map.fitBounds(bounds.pad(0.1));
+        }
       var lat = 0, lng = 0;
       if (p.latitude && p.longitude) {
         lat = parseFloat(p.latitude);
@@ -173,7 +178,7 @@ PWA.Mapa = {
 
       var color = PWA.Mapa.colorPorEstado(p);
       var pin   = PWA.Mapa.crearPin(color);
-      var nombre = p.nombre || p.DebtorName || 'Prospecto';
+      var nombre = p.prospecto || p.nombre || p.DebtorName || 'Prospecto';
 
       var marker = L.marker([lat, lng], { icon: pin })
         .bindPopup('<strong>' + nombre + '</strong><br><button onclick="PWA.Detalle.abrir(\'' + p.u_movimiento + '\')" style="margin-top:6px;padding:4px 10px;background:#4f8ef7;color:white;border:none;border-radius:6px;cursor:pointer">Ver detalle</button>')
@@ -217,7 +222,7 @@ PWA.Mapa = {
     conGeo.forEach(function(item) {
       var p      = item.p;
       var dist   = item.dist < 1 ? Math.round(item.dist * 1000) + ' m' : item.dist.toFixed(1) + ' km';
-      var nombre = p.nombre || p.DebtorName || 'Prospecto';
+      var nombre = p.prospecto || p.nombre || p.DebtorName || 'Prospecto';
       html += '<div class="card2" onclick="PWA.Detalle.abrir(\'' + p.u_movimiento + '\')" style="cursor:pointer;margin-bottom:6px">';
       html += '<div style="display:flex;justify-content:space-between;align-items:center">';
       html += '<span style="font-size:13px;font-weight:600">' + nombre + '</span>';
