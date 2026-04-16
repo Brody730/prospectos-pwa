@@ -116,16 +116,24 @@ PWA.Mapa = {
   },
 
   cargarProspectosEnMapa: function() {
-    var prospectos = PWA.state.prospectos;
-    if (!prospectos || prospectos.length === 0) {
-      // Intentar desde cache
-      SyncDB.leerProspectosCache(function(items) {
-        PWA.Mapa.pintarPins(items);
-      });
-      return;
+  // Si ya hay prospectos en state, usarlos directo
+  if (PWA.state.prospectos && PWA.state.prospectos.length > 0) {
+    PWA.Mapa.pintarPins(PWA.state.prospectos);
+    return;
+  }
+
+  // Si no hay datos, cargarlos desde la API
+  PWA.apiPost('api/prospectos.php', {
+    option: 'TraerProspectos',
+    filtro: 'todos',
+    limit: 200
+  }, function(err, data) {
+    if (!err && data && data.result && data.contenido) {
+      PWA.state.prospectos = data.contenido;
+      PWA.Mapa.pintarPins(data.contenido);
     }
-    PWA.Mapa.pintarPins(prospectos);
-  },
+  });
+},
 
   pintarPins: function(prospectos) {
     if (!PWA.Mapa.markersLayer) return;
