@@ -1,6 +1,6 @@
 # CONTEXTO MAESTRO — PWA Prospectos ROGMAI
 **Última actualización:** 2026-04-17  
-**Autor:** Jozet Mendoza (jmendoza)  
+**Autor:** Jozet Ramirez (user server jmendoza)  
 **Repo:** https://github.com/Brody730/prospectos-pwa
 
 ---

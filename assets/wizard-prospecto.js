@@ -36,12 +36,16 @@
       });
 
       document.body.appendChild(backdrop);
+      document.documentElement.classList.add('body-modal-open');
       this.cargarDatos();
     },
 
     cerrar: function() {
       var bd = document.getElementById('wizardProspectoBackdrop');
       if (bd) bd.parentNode.removeChild(bd);
+      if (!document.querySelector('.modal-backdrop.open')) {
+        document.documentElement.classList.remove('body-modal-open');
+      }
     },
 
     api: function(payload, cb) {
