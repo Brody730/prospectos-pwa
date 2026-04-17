@@ -59,6 +59,45 @@ if (!empty($_POST)) {
 $option = isset($input['option']) ? $input['option'] : '';
 error_log('[PWA] option=' . $option . ' userid=' . $_SESSION['UserID']);
 
+// ── obtenerImagenesOportunidad: override para incluir URL derivada de ruta física ──
+if ($option === 'obtenerImagenesOportunidad') {
+    $idOp = isset($input['idOportunidad']) ? intval($input['idOportunidad']) : 0;
+    if (!$idOp) {
+        echo json_encode(array('result' => false, 'contenido' => array()));
+        exit;
+    }
+    $idOp_esc = DB_escape_string((string)$idOp, $db);
+    $sql = "SELECT iddoc, name, user_register, public,
+                   date_format(register_date,'%d-%m-%Y') AS register_date,
+                   SUBSTRING_INDEX(tipo,'/',-1) AS tipo
+            FROM documents WHERE typedoc = '$idOp_esc'";
+    $res = ProspectosEjecutarConsulta($sql, $db, 'obtenerImagenes');
+    $imgs = array();
+    if ($res) {
+        while ($row = DB_fetch_array($res)) {
+            $pub = isset($row['public']) ? $row['public'] : '';
+            // Convertir ruta física a URL relativa
+            $url = '';
+            foreach (array('/data2/html', '/var/www/html') as $base) {
+                if (strpos($pub, $base) === 0) {
+                    $url = substr($pub, strlen($base));
+                    break;
+                }
+            }
+            $imgs[] = array(
+                'iddoc'         => $row['iddoc'],
+                'name'          => $row['name'],
+                'user_register' => $row['user_register'],
+                'register_date' => $row['register_date'],
+                'tipo'          => $row['tipo'],
+                'url'           => $url,
+            );
+        }
+    }
+    echo json_encode(array('result' => true, 'contenido' => $imgs));
+    exit;
+}
+
 // ── TEMP: diagnóstico de paths (borrar después) ──
 if ($option === 'diagnosticoImagenes') {
     $candidatos = [

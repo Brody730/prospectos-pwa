@@ -129,6 +129,48 @@
       this.renderTiempoVidaSeleccion();
       this.recalcularTotalesB();
       this.recalcularTotalesC();
+      this.cargarImagenesA();
+    },
+
+    cargarImagenesA: function() {
+      var self = this;
+      self.api({ option: 'obtenerImagenesOportunidad', idOportunidad: self.uMovimiento }, function(err, data) {
+        var prev = document.getElementById('wa_preview_a');
+        if (!prev) return;
+        if (err || !data || !data.result || !data.contenido || !data.contenido.length) {
+          prev.textContent = 'Sin imágenes guardadas';
+          return;
+        }
+        var html = '<div style="font-size:11px;color:var(--pwa-muted);margin-bottom:6px">' + data.contenido.length + ' imagen(es) guardada(s):</div>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+        data.contenido.forEach(function(img) {
+          if (!img.url) return;
+          html += '<div style="position:relative">';
+          html += '<img src="' + self.e(img.url) + '" alt="' + self.e(img.name) + '" '
+               + 'style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--pwa-border);cursor:pointer" '
+               + 'onclick="window.open(\'' + self.e(img.url) + '\',\'_blank\')" '
+               + 'onerror="this.parentNode.style.display=\'none\'">';
+          html += '<button type="button" '
+               + 'style="position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--pwa-danger);border:none;color:white;font-size:11px;line-height:1;cursor:pointer" '
+               + 'onclick="PWA.WizardProspecto.eliminarImagenA(' + img.iddoc + ',this)">×</button>';
+          html += '</div>';
+        });
+        html += '</div>';
+        prev.innerHTML = html;
+      });
+    },
+
+    eliminarImagenA: function(iddoc, btn) {
+      var self = this;
+      self.api({ option: 'EliminarImagen', iddoc: iddoc }, function(err, data) {
+        if (err || !data || !data.result) {
+          PWA.toast('Error al eliminar', 'warn');
+          return;
+        }
+        var thumb = btn && btn.parentNode;
+        if (thumb) thumb.parentNode.removeChild(thumb);
+        PWA.toast('Imagen eliminada', 'ok');
+      });
     },
 
     tab: function(letra) {
