@@ -14,11 +14,14 @@ $PathPrefix = '/var/www/html/erpdistribucion/';
 include($PathPrefix . 'config.php');
 include($PathPrefix . 'includes/ConnectDB.inc');
 include($PathPrefix . 'includes/SQL_CommonFunctions.inc');
-include($PathPrefix . 'includes/SecurityFunctions.inc');
 
-// Limpiar TODOS los buffers que los includes puedan haber dejado abiertos.
-// SecurityFunctions.inc puede abrir su propio ob_start() sin cerrarlo; un solo
-// ob_end_clean() cerraría el suyo dejando el nuestro (nivel 1) activo con HTML acumulado.
+// SecurityFunctions.inc ejecuta SQL en tiempo de include que puede
+// generar HTML de error. Lo aislamos en un buffer propio que se descarta.
+ob_start();
+include($PathPrefix . 'includes/SecurityFunctions.inc');
+ob_end_clean();
+
+// Limpiar cualquier salida residual de los demás includes (config, ConnectDB, etc.).
 while (ob_get_level() > 0) {
     ob_end_clean();
 }
