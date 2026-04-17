@@ -60,7 +60,25 @@ $option = isset($input['option']) ? $input['option'] : '';
 error_log('[PWA] option=' . $option . ' userid=' . $_SESSION['UserID']);
 
 // Passthrough normal para actividades y otros
-if (in_array($option, array('GuardarActividad', 'traeultimaposicion', 'obtenerImagenesOportunidad'))) {
+if (in_array($option, array(
+    'GuardarActividad',
+    'traeultimaposicion',
+    'obtenerImagenesOportunidad',
+    'insertarEtapaA',
+    'modificarEtapaA',
+    'ObtenerOportunidad',
+    'obtenerCheckTiempoVida',
+    'ModalBuscarProductos',
+    'GuardarEtapaB',
+    'GuardarEtapaC',
+    'ModificarEtapaC',
+    'GuardarEtapaD',
+    'GuardarAdjuntos',
+    'EliminarImagen',
+    'ObtenerDocAdmin',
+    'SolicitarAutorizarCotizacion',
+    'AutorizarCotizacion'
+))) {
     $_POST = array_merge($_POST, $input);
     include($PathPrefix . 'modelo/ProspectV2Modelo.php');
     exit;
