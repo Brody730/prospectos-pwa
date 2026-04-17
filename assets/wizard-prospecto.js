@@ -6,6 +6,7 @@
     productosB: [],
     productosC: [],
     imagenesPendientes: [],
+    bEditable: false,   // true solo si idstatus < 2 (stage A, antes del primer guardado de B)
 
     abrir: function(uMovimiento) {
       this.uMovimiento = String(uMovimiento || '');
@@ -64,6 +65,9 @@
         }
 
         self.data = data.contenido[0];
+        // Productos de B solo editables si idstatus < 2 (aún en stage A, sin guardar B)
+        self.bEditable = parseInt(self.data.idstatus || 0, 10) < 2;
+
         self.productosB = (self.data.productos || []).map(function(p) {
           return {
             stockid: p.stockid,
@@ -228,7 +232,7 @@
         '<div class="card2 wizard-card-soft">',
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">',
             '<div style="font-size:12px;color:var(--pwa-muted)">Productos Etapa B</div>',
-            '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.buscarProductos(\'B\')">+ Producto</button>',
+            (this.bEditable ? '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.abrirModalBusqueda(\'B\')">+ Producto</button>' : '<span style="font-size:11px;color:var(--pwa-warn)">Solo lectura</span>'),
           '</div>',
           '<div id="wb_productos"></div>',
         '</div>',
@@ -253,7 +257,7 @@
         '<div class="card2 wizard-card-soft">',
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">',
             '<div style="font-size:12px;color:var(--pwa-muted)">Productos Etapa C</div>',
-            '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.buscarProductos(\'C\')">+ Producto</button>',
+            '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.abrirModalBusqueda(\'C\')">+ Producto</button>',
           '</div>',
           '<div id="wc_productos"></div>',
           '<div style="margin-top:8px;font-size:12px;color:var(--pwa-muted)">Subtotal: <span id="wc_sub">0.00</span> · IVA: <span id="wc_iva">0.00</span> · Total: <span id="wc_total">0.00</span></div>',
@@ -420,20 +424,27 @@
     renderProductosB: function() {
       var cont = document.getElementById('wb_productos');
       if (!cont) return;
+      var editable = this.bEditable;
       var html = '';
       if (!this.productosB.length) {
         html = '<div style="font-size:12px;color:var(--pwa-muted)">Sin productos</div>';
       } else {
-        html = '<table class="w-table"><thead><tr><th>Código</th><th>Descripción</th><th>Cant</th><th>P.U.</th><th>Total</th><th></th></tr></thead><tbody>';
+        html = '<table class="w-table"><thead><tr><th>Código</th><th>Descripción</th><th>Cant</th><th>P.U.</th><th>Total</th>' + (editable ? '<th></th>' : '') + '</tr></thead><tbody>';
         this.productosB.forEach(function(p, i) {
           var total = (parseFloat(p.cantidad || 0) * parseFloat(p.precio || 0)).toFixed(2);
           html += '<tr>';
           html += '<td>' + p.stockid + '</td>';
           html += '<td>' + p.descripcion + '</td>';
-          html += '<td><input class="form-input w-sm" value="' + p.cantidad + '" onchange="PWA.WizardProspecto.editarProductoB(' + i + ', this.value)"></td>';
+          if (editable) {
+            html += '<td><input class="form-input w-sm" value="' + p.cantidad + '" onchange="PWA.WizardProspecto.editarProductoB(' + i + ', this.value)"></td>';
+          } else {
+            html += '<td>' + p.cantidad + '</td>';
+          }
           html += '<td>' + p.precio.toFixed(2) + '</td>';
           html += '<td>' + total + '</td>';
-          html += '<td><button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.borrarProductoB(' + i + ')">x</button></td>';
+          if (editable) {
+            html += '<td><button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.borrarProductoB(' + i + ')">×</button></td>';
+          }
           html += '</tr>';
         });
         html += '</tbody></table>';
@@ -515,41 +526,92 @@
       if (eTot) eTot.textContent = total.toFixed(2);
     },
 
-    buscarProductos: function(etapa) {
-      var self = this;
-      var filtro = prompt('Buscar producto por texto (opcional):', '') || '';
-      self.api({ option: 'ModalBuscarProductos', filtro: filtro }, function(err, data) {
-        if (err || !data || !data.result) {
-          PWA.toast('Error buscando productos', 'warn');
-          return;
-        }
-        var listado = data.contenido || [];
-        if (!listado.length) {
-          PWA.toast('Sin resultados', 'warn');
-          return;
-        }
+    abrirModalBusqueda: function(etapa) {
+      // Cerrar si ya existe
+      var viejo = document.getElementById('wBusqBackdrop');
+      if (viejo) viejo.parentNode.removeChild(viejo);
 
-        var p = listado[0];
-        if (etapa === 'B') {
-          self.productosB.push({
-            stockid: p.stockid,
-            descripcion: p.description,
-            precio: parseFloat(p.price || 0),
-            cantidad: parseFloat(document.getElementById('wb_area') ? document.getElementById('wb_area').value || 1 : 1),
-            units: p.units || ''
-          });
-          self.renderProductosB();
-        } else {
-          self.productosC.push({
-            stockid: p.stockid,
-            descripcion: p.description,
-            precio: parseFloat(p.price || 0),
-            cantidad: parseFloat(document.getElementById('wb_area') ? document.getElementById('wb_area').value || 1 : 1),
-            taxrate: parseFloat(p.taxrate || 0)
-          });
-          self.renderProductosC();
+      var bd = document.createElement('div');
+      bd.id = 'wBusqBackdrop';
+      bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;display:flex;align-items:flex-end';
+      bd.innerHTML = [
+        '<div style="width:100%;max-height:80vh;background:var(--pwa-card);border-radius:18px 18px 0 0;display:flex;flex-direction:column;padding:16px">',
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">',
+            '<div style="font-weight:700;font-size:15px;flex:1">Agregar producto — Etapa ' + etapa + '</div>',
+            '<button type="button" onclick="document.getElementById(\'wBusqBackdrop\').remove()" style="background:var(--pwa-card2);border:1px solid var(--pwa-border);border-radius:8px;color:var(--pwa-text);width:30px;height:30px;cursor:pointer">✕</button>',
+          '</div>',
+          '<div style="display:flex;gap:8px;margin-bottom:10px">',
+            '<input id="wBusqInput" class="form-input" placeholder="Buscar por descripción o código..." style="flex:1" onkeydown="if(event.key===\'Enter\')PWA.WizardProspecto.ejecutarBusqueda(\'' + etapa + '\')">',
+            '<button class="btn btn-primary" type="button" onclick="PWA.WizardProspecto.ejecutarBusqueda(\'' + etapa + '\')">Buscar</button>',
+          '</div>',
+          '<div id="wBusqResultados" style="flex:1;overflow-y:auto;min-height:0">',
+            '<div style="font-size:12px;color:var(--pwa-muted);text-align:center;padding:20px">Escribe para buscar productos</div>',
+          '</div>',
+        '</div>'
+      ].join('');
+
+      bd.addEventListener('click', function(e) { if (e.target === bd) bd.remove(); });
+      document.body.appendChild(bd);
+      document.getElementById('wBusqInput').focus();
+    },
+
+    ejecutarBusqueda: function(etapa) {
+      var self = this;
+      var input = document.getElementById('wBusqInput');
+      var filtro = input ? input.value.trim() : '';
+      var cont = document.getElementById('wBusqResultados');
+      if (cont) cont.innerHTML = '<div style="text-align:center;padding:16px"><div class="spinner" style="margin:0 auto"></div></div>';
+
+      self.api({ option: 'ModalBuscarProductos', filtro: filtro }, function(err, data) {
+        if (!cont) return;
+        if (err || !data || !data.result) {
+          cont.innerHTML = '<div style="color:var(--pwa-danger);padding:12px">Error al buscar productos</div>';
+          return;
         }
+        var lista = data.contenido || [];
+        if (!lista.length) {
+          cont.innerHTML = '<div style="font-size:13px;color:var(--pwa-muted);padding:12px">Sin resultados para "' + self.e(filtro) + '"</div>';
+          return;
+        }
+        var html = '';
+        lista.forEach(function(p) {
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--pwa-border);gap:8px">';
+          html += '<div style="flex:1;min-width:0">';
+          html += '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + self.e(p.description) + '</div>';
+          html += '<div style="font-size:11px;color:var(--pwa-muted)">' + self.e(p.stockid) + ' · $' + p.price + ' · ' + self.e(p.units || '') + '</div>';
+          html += '</div>';
+          html += '<button class="btn btn-primary" type="button" style="flex-shrink:0;padding:6px 14px;font-size:12px" '
+               + 'onclick="PWA.WizardProspecto.seleccionarProducto(\'' + etapa + '\',' + JSON.stringify(p) + ')">+ Agregar</button>';
+          html += '</div>';
+        });
+        cont.innerHTML = html;
       });
+    },
+
+    seleccionarProducto: function(etapa, p) {
+      var cantidadBase = parseFloat((document.getElementById('wb_area') || {}).value || 1) || 1;
+      if (etapa === 'B') {
+        this.productosB.push({
+          stockid: p.stockid,
+          descripcion: p.description,
+          precio: parseFloat(p.price || 0),
+          cantidad: cantidadBase,
+          units: p.units || ''
+        });
+        this.renderProductosB();
+      } else {
+        this.productosC.push({
+          stockid: p.stockid,
+          descripcion: p.description,
+          precio: parseFloat(p.price || 0),
+          cantidad: 1,
+          taxrate: parseFloat(p.taxrate || 0)
+        });
+        this.renderProductosC();
+      }
+      var bd = document.getElementById('wBusqBackdrop');
+      if (bd) bd.remove();
+      PWA.toast(p.description + ' agregado', 'ok');
     },
 
     guardarEtapaB: function(soloGuardar) {
