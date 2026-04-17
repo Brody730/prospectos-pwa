@@ -70,7 +70,7 @@ if (in_array($option, array('GuardarActividad', 'traeultimaposicion', 'obtenerIm
 if ($option == 'GuardarCambioEstatus') {
     // 1. Validar feature flag server-side (prospecto de prueba)
     $uMovimiento = isset($input['u_movimiento']) ? intval($input['u_movimiento']) : 0;
-    $FEATURE_FLAG_PROSPECTO_PRUEBA = 31136;  // null para rollout total
+    $FEATURE_FLAG_PROSPECTO_PRUEBA = null;  // null para rollout total
     
     if ($FEATURE_FLAG_PROSPECTO_PRUEBA !== null && $uMovimiento !== $FEATURE_FLAG_PROSPECTO_PRUEBA) {
         error_log('[PWA CambiarEtapa BLOCKED] userid=' . $_SESSION['UserID'] . ' intentó cambiar u_movimiento=' . $uMovimiento . ' pero feature flag solo permite ' . $FEATURE_FLAG_PROSPECTO_PRUEBA);

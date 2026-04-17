@@ -94,7 +94,7 @@ foreach ($queue as $item) {
 
             case 'cambio_etapa':
             // Validar feature flag (igual que prospectos.php)
-            $FEATURE_FLAG_PROSPECTO_PRUEBA = 31136;  // null para rollout total
+            $FEATURE_FLAG_PROSPECTO_PRUEBA = null;  // null para rollout total
             
             $uMovimiento     = isset($payload['u_movimiento'])      ? intval($payload['u_movimiento'])      : 0;
             $nuevoStatus     = isset($payload['cmbCambiarEstatus']) ? intval($payload['cmbCambiarEstatus']) : 0;
