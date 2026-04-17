@@ -1107,3 +1107,96 @@ html, body {
     overflow-x: auto;
   }
 }
+
+/* ── Scroll lock cuando modal está abierto ── */
+html.body-modal-open,
+html.body-modal-open body {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* ── Landscape móvil (altura < 500px): modal centrado, tabs en fila ── */
+@media (orientation: landscape) and (max-height: 500px) {
+  .modal-backdrop {
+    align-items: center;
+    padding: 8px;
+  }
+
+  .modal-sheet {
+    border-radius: 14px;
+    max-height: 96vh;
+    padding: 12px 14px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .modal-handle {
+    margin-bottom: 10px;
+  }
+
+  .wizard-sheet {
+    border-radius: 14px;
+    max-width: 680px;
+    width: 100%;
+  }
+
+  .wizard-header {
+    padding: 4px 2px 8px 2px;
+    margin-bottom: 8px;
+  }
+
+  .wizard-tabs {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .wizard-tab {
+    min-height: 36px;
+    font-size: 10px;
+    gap: 5px;
+    padding: 0 5px;
+  }
+
+  .wizard-step {
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
+  }
+
+  .form-group {
+    margin-bottom: 9px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    padding: 8px 10px;
+    font-size: 15px;
+  }
+
+  .form-textarea {
+    min-height: 52px;
+  }
+
+  .wizard-footer {
+    margin-top: 8px;
+    padding-top: 7px;
+  }
+
+  .tv-grid {
+    font-size: 10px;
+    gap: 4px;
+  }
+}
+
+/* ── Landscape tablet (altura >= 500px): tabs en fila única ── */
+@media (orientation: landscape) and (min-height: 500px) and (max-width: 1024px) {
+  .wizard-tabs {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+
+  .modal-sheet {
+    max-height: 88vh;
+  }
+}

@@ -48,6 +48,8 @@
 - [x] Se removió botón manual “⇆ Cambiar” y se dejó sólo etiqueta de etapa visual en detalle (`assets/app.js`).
 - [x] Se ajustó viewport en `index.php` para mejor soporte horizontal (`viewport-fit=cover` y sin bloqueo de escala).
 - [x] Se ajustó scroll en `assets/app.css` para evitar bloqueo (body/mainContent/modal-sheet).
+- [x] Se agregó scroll lock (`body-modal-open` en `<html>`) al abrir/cerrar cualquier modal (wizard + detalle + actividad + etapa).
+- [x] Se agregaron media queries `@media (orientation: landscape)` para wizard: tabs 4-en-fila, modal centrado, tamaños reducidos en móvil landscape (max-height: 500px) y tablet landscape.
 
 ## Decisión confirmada
 - [x] Alcance funcional: migración visual/funcional del wizard A-D usando bridge/Passthrough a ERP.
