@@ -19,3 +19,5 @@ TODO.md
 *.docx
 *.pdf
 *.exe   
+settings.local.json
+*.md*

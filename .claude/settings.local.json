@@ -6,7 +6,19 @@
       "Bash(curl -s -X POST http://localhost/prospectos/api/agenda.php -H 'Content-Type: application/json' -d '{\"opcion\":\"TraerHistorial\",\"u_movimiento\":31136}')",
       "Bash(git checkout *)",
       "Bash(git pull *)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "Bash(lsb_release -rs)",
+      "Read(//usr/lib/**)",
+      "Bash(flatpak-spawn --host which apt-get)",
+      "Read(//run/host/usr/bin/**)",
+      "Bash(dpkg --print-architecture)",
+      "Bash(flatpak-spawn --host bash -c \"curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && echo 'deb [arch=$\\(dpkg --print-architecture\\) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main' | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null && sudo apt-get update -q && sudo apt-get install -y gh\")",
+      "Bash(flatpak-spawn --host bash -c \"uname -m\")",
+      "Bash(flatpak-spawn --host bash -c \"cd ~/Escritorio/prospectos-pwa && git config credential.https://github.com.helper '~/.local/bin/gh auth git-credential' && git push origin main 2>&1\")",
+      "Bash(flatpak-spawn --host bash -c \"cd ~/Escritorio/prospectos-pwa && git log origin/main --oneline -5 2>&1\")",
+      "Bash(flatpak-spawn --host bash -c \"cd ~/Escritorio/prospectos-pwa && git config credential.https://github.com.helper '!~/.local/bin/gh auth git-credential' && git push origin main 2>&1\")",
+      "Bash(flatpak-spawn --host bash -c \"cat /var/www/html/erpdistribucion/modelo/ProspectV2Modelo.php 2>/dev/null | grep -A 40 'GuardarAdjuntos\\\\|imagenesconvertidas\\\\|file_put_contents\\\\|images/prospectos'\")",
+      "Bash(flatpak-spawn --host bash -c \"cd ~/Escritorio/prospectos-pwa && git push origin main 2>&1\")"
     ]
   }
 }
