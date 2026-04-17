@@ -25,7 +25,8 @@
 
 html, body {
   height: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--pwa-bg);
   color: var(--pwa-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -41,7 +42,8 @@ html, body {
   left: 0;
   right: 0;
   bottom: var(--nav-h);
-  overflow: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .view {
@@ -719,8 +721,9 @@ html, body {
   border-radius: 20px 20px 0 0;
   padding: 20px 16px;
   padding-bottom: calc(20px + env(safe-area-inset-bottom));
-  max-height: 90vh;
+  max-height: 92vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
