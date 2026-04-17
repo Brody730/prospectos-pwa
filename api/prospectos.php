@@ -59,6 +59,39 @@ if (!empty($_POST)) {
 $option = isset($input['option']) ? $input['option'] : '';
 error_log('[PWA] option=' . $option . ' userid=' . $_SESSION['UserID']);
 
+// ── TEMP: diagnóstico de paths (borrar después) ──
+if ($option === 'diagnosticoImagenes') {
+    $candidatos = [
+        '/data2/html/erpdistribucion/images/prospectos',
+        '/var/www/html/erpdistribucion/images/prospectos',
+        '/data2/html/erpdistribucion/images',
+        '/var/www/html/erpdistribucion/images',
+        '/data2/html/erpdistribucion',
+        '/var/www/html/erpdistribucion',
+        '/data2/html',
+        '/var/www/html',
+    ];
+    $info = [];
+    foreach ($candidatos as $p) {
+        $info[$p] = [
+            'is_dir'      => is_dir($p),
+            'is_writable' => is_writable($p),
+        ];
+    }
+    // Intentar crear el directorio de prospectos
+    $target = '/data2/html/erpdistribucion/images/prospectos';
+    $mkdirOk = is_dir($target) ? 'ya existe' : (@mkdir($target, 0775, true) ? 'creado OK' : 'FALLO');
+    echo json_encode([
+        'result'       => true,
+        'document_root'=> $_SERVER['DOCUMENT_ROOT'] ?? '',
+        'script_dir'   => __DIR__,
+        'php_user'     => function_exists('posix_geteuid') ? posix_getpwuid(posix_geteuid())['name'] ?? 'n/a' : 'posix no disponible',
+        'mkdir_data2'  => $mkdirOk,
+        'paths'        => $info,
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
+
 // ── GuardarAdjuntos: manejado directamente para garantizar ruta y permisos ──
 if ($option === 'GuardarAdjuntos') {
     $u_movimiento = isset($input['u_oportunidad']) ? intval($input['u_oportunidad']) : 0;
