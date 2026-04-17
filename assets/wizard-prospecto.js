@@ -113,7 +113,16 @@
       if (!cont || !this.data) return;
 
       var d = this.data;
+      var idstatus = parseInt(d.idstatus || 0, 10);
+      var etapaLabel = idstatus <= 1 ? 'A' : idstatus === 2 ? 'B' : idstatus === 3 ? 'C' : idstatus >= 4 ? 'D' : '?';
+      var etapaColores = { A: 'var(--pwa-primary)', B: 'var(--pwa-warn)', C: 'var(--pwa-ok)', D: 'var(--pwa-muted)' };
+      var etapaColor = etapaColores[etapaLabel] || 'var(--pwa-muted)';
+
       var html = '';
+      html += '<div style="padding:6px 16px 0;display:flex;align-items:center;gap:6px">';
+      html += '<div style="font-size:11px;color:var(--pwa-muted)">Etapa actual:</div>';
+      html += '<div style="font-size:11px;font-weight:700;color:' + etapaColor + ';background:rgba(0,0,0,0.15);border-radius:4px;padding:2px 8px">' + etapaLabel + ' (status ' + idstatus + ')</div>';
+      html += '</div>';
       html += '<div class="wizard-tabs">';
       html += '<button class="wizard-tab active" data-tab="A" onclick="PWA.WizardProspecto.tab(\'A\')"><span class="wizard-step">A</span><span>Prospecto</span></button>';
       html += '<button class="wizard-tab" data-tab="B" onclick="PWA.WizardProspecto.tab(\'B\')"><span class="wizard-step">B</span><span>Visita</span></button>';
@@ -527,7 +536,6 @@
     },
 
     abrirModalBusqueda: function(etapa) {
-      // Cerrar si ya existe
       var viejo = document.getElementById('wBusqBackdrop');
       if (viejo) viejo.parentNode.removeChild(viejo);
 
@@ -535,24 +543,40 @@
       bd.id = 'wBusqBackdrop';
       bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;display:flex;align-items:flex-end';
       bd.innerHTML = [
-        '<div style="width:100%;max-height:80vh;background:var(--pwa-card);border-radius:18px 18px 0 0;display:flex;flex-direction:column;padding:16px">',
-          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">',
-            '<div style="font-weight:700;font-size:15px;flex:1">Agregar producto — Etapa ' + etapa + '</div>',
-            '<button type="button" onclick="document.getElementById(\'wBusqBackdrop\').remove()" style="background:var(--pwa-card2);border:1px solid var(--pwa-border);border-radius:8px;color:var(--pwa-text);width:30px;height:30px;cursor:pointer">✕</button>',
+        '<div id="wBusqSheet" style="width:100%;height:80vh;background:var(--pwa-card);border-radius:18px 18px 0 0;display:flex;flex-direction:column;overflow:hidden">',
+          '<div style="padding:16px 16px 0">',
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">',
+              '<div style="font-weight:700;font-size:15px;flex:1">Agregar producto · Etapa ' + etapa + '</div>',
+              '<button type="button" id="wBusqClose" style="background:var(--pwa-card2);border:1px solid var(--pwa-border);border-radius:8px;color:var(--pwa-text);width:32px;height:32px;font-size:16px;cursor:pointer;flex-shrink:0">✕</button>',
+            '</div>',
+            '<input id="wBusqInput" class="form-input" placeholder="Filtrar por nombre o código..." style="width:100%;box-sizing:border-box;margin-bottom:10px">',
+            '<div id="wBusqConteo" style="font-size:11px;color:var(--pwa-muted);margin-bottom:6px"></div>',
           '</div>',
-          '<div style="display:flex;gap:8px;margin-bottom:10px">',
-            '<input id="wBusqInput" class="form-input" placeholder="Buscar por descripción o código..." style="flex:1" onkeydown="if(event.key===\'Enter\')PWA.WizardProspecto.ejecutarBusqueda(\'' + etapa + '\')">',
-            '<button class="btn btn-primary" type="button" onclick="PWA.WizardProspecto.ejecutarBusqueda(\'' + etapa + '\')">Buscar</button>',
-          '</div>',
-          '<div id="wBusqResultados" style="flex:1;overflow-y:auto;min-height:0">',
-            '<div style="font-size:12px;color:var(--pwa-muted);text-align:center;padding:20px">Escribe para buscar productos</div>',
-          '</div>',
+          '<div id="wBusqResultados" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 16px"></div>',
         '</div>'
       ].join('');
 
       bd.addEventListener('click', function(e) { if (e.target === bd) bd.remove(); });
+      bd.querySelector('#wBusqClose').addEventListener('click', function() { bd.remove(); });
       document.body.appendChild(bd);
-      document.getElementById('wBusqInput').focus();
+
+      var inp = document.getElementById('wBusqInput');
+      inp.focus();
+
+      // Cargar todos los productos al abrir
+      PWA.WizardProspecto.ejecutarBusqueda(etapa);
+
+      // Filtrado en tiempo real con debounce
+      var timer;
+      inp.addEventListener('input', function() {
+        clearTimeout(timer);
+        timer = setTimeout(function() {
+          PWA.WizardProspecto.ejecutarBusqueda(etapa);
+        }, 300);
+      });
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { clearTimeout(timer); PWA.WizardProspecto.ejecutarBusqueda(etapa); }
+      });
     },
 
     ejecutarBusqueda: function(etapa) {
@@ -560,28 +584,32 @@
       var input = document.getElementById('wBusqInput');
       var filtro = input ? input.value.trim() : '';
       var cont = document.getElementById('wBusqResultados');
-      if (cont) cont.innerHTML = '<div style="text-align:center;padding:16px"><div class="spinner" style="margin:0 auto"></div></div>';
+      var conteo = document.getElementById('wBusqConteo');
+      if (cont) cont.innerHTML = '<div style="text-align:center;padding:24px"><div class="spinner" style="margin:0 auto"></div></div>';
+      if (conteo) conteo.textContent = '';
 
       self.api({ option: 'ModalBuscarProductos', filtro: filtro }, function(err, data) {
         if (!cont) return;
         if (err || !data || !data.result) {
-          cont.innerHTML = '<div style="color:var(--pwa-danger);padding:12px">Error al buscar productos</div>';
+          cont.innerHTML = '<div style="color:var(--pwa-danger);padding:12px">Error al cargar productos</div>';
           return;
         }
         var lista = data.contenido || [];
+        if (conteo) conteo.textContent = lista.length + ' producto(s)' + (filtro ? ' para "' + filtro + '"' : '');
         if (!lista.length) {
-          cont.innerHTML = '<div style="font-size:13px;color:var(--pwa-muted);padding:12px">Sin resultados para "' + self.e(filtro) + '"</div>';
+          cont.innerHTML = '<div style="font-size:13px;color:var(--pwa-muted);padding:24px;text-align:center">Sin resultados' + (filtro ? ' para "' + self.e(filtro) + '"' : '') + '</div>';
           return;
         }
         var html = '';
         lista.forEach(function(p) {
-          html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--pwa-border);gap:8px">';
+          var pJson = JSON.stringify(p).replace(/'/g, '&#39;');
+          html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--pwa-border)">';
           html += '<div style="flex:1;min-width:0">';
-          html += '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + self.e(p.description) + '</div>';
-          html += '<div style="font-size:11px;color:var(--pwa-muted)">' + self.e(p.stockid) + ' · $' + p.price + ' · ' + self.e(p.units || '') + '</div>';
+          html += '<div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + self.e(p.description) + '</div>';
+          html += '<div style="font-size:11px;color:var(--pwa-muted);margin-top:2px">' + self.e(p.stockid) + ' · $' + p.price + ' · ' + self.e(p.units || '') + '</div>';
           html += '</div>';
-          html += '<button class="btn btn-primary" type="button" style="flex-shrink:0;padding:6px 14px;font-size:12px" '
-               + 'onclick="PWA.WizardProspecto.seleccionarProducto(\'' + etapa + '\',' + JSON.stringify(p) + ')">+ Agregar</button>';
+          html += '<button class="btn btn-primary" type="button" style="flex-shrink:0;padding:6px 12px;font-size:12px" '
+               + 'onclick="PWA.WizardProspecto.seleccionarProducto(\'' + etapa + '\',' + pJson + ')">Agregar</button>';
           html += '</div>';
         });
         cont.innerHTML = html;
