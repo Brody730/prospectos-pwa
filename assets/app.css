@@ -929,3 +929,96 @@ html, body {
   border-radius: 999px;
   padding: 4px 8px;
 }
+
+/* ── Wizard Prospecto A-D ── */
+.wizard-sheet {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.wizard-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.wizard-tab {
+  border: 1px solid var(--pwa-border);
+  background: var(--pwa-card2);
+  color: var(--pwa-muted);
+  border-radius: 10px;
+  min-height: 40px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wizard-tab.active {
+  background: var(--pwa-accent);
+  color: #fff;
+  border-color: var(--pwa-accent);
+}
+
+.wizard-pane {
+  display: none;
+}
+
+.wizard-pane.active {
+  display: block;
+}
+
+.w-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.w-table th,
+.w-table td {
+  border-bottom: 1px solid var(--pwa-border);
+  padding: 8px 6px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.w-sm {
+  min-width: 74px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.tv-grid {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(5, minmax(42px, 1fr));
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.tv-grid > div {
+  text-align: center;
+}
+
+.tv-grid .tv-label {
+  text-align: left;
+  color: var(--pwa-text);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+@media (max-width: 820px) {
+  .wizard-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tv-grid {
+    grid-template-columns: 1.4fr repeat(5, minmax(34px, 1fr));
+    font-size: 11px;
+  }
+
+  .w-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
