@@ -240,7 +240,11 @@
       if (!files.length) return;
       this.imagenesPendientes = this.imagenesPendientes.concat(files);
       var prev = document.getElementById('wa_preview_a');
-      if (prev) prev.textContent = this.imagenesPendientes.length + ' imagen(es) listas para subir';
+      if (prev) prev.textContent = this.imagenesPendientes.length + ' imagen(es) lista(s) para subir';
+      // Si viene de la cámara, subir automáticamente sin botón extra
+      if (ev.target && ev.target.id === 'wa_file_camera') {
+        this.subirImagenesA();
+      }
     },
 
     subirImagenesA: function() {
@@ -250,15 +254,20 @@
         return;
       }
 
+      var prev = document.getElementById('wa_preview_a');
+      if (prev) prev.textContent = 'Subiendo...';
+
       var convertidas = [];
       var pendientes = self.imagenesPendientes.length;
+      var ext = { 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp' };
 
       self.imagenesPendientes.forEach(function(file) {
         var reader = new FileReader();
         reader.onload = function() {
+          var sufijo = ext[file.type] || '.jpg';
           convertidas.push({
             cadena: reader.result,
-            nombre: 'pwa_' + Date.now() + '_' + Math.floor(Math.random() * 10000) + '.jpg',
+            nombre: 'pwa_' + Date.now() + '_' + Math.floor(Math.random() * 10000) + sufijo,
             tipo: file.type || 'image/jpeg'
           });
           pendientes--;
@@ -269,12 +278,14 @@
               imagenesconvertidas: JSON.stringify(convertidas)
             }, function(err, data) {
               if (err || !data || !data.result) {
-                PWA.toast('Error al subir imágenes', 'warn');
+                var msg = (data && data.msjError) ? data.msjError : 'Error al subir imágenes';
+                if (prev) prev.textContent = 'Error: ' + msg;
+                PWA.toast(msg, 'warn');
                 return;
               }
               self.imagenesPendientes = [];
-              var prev = document.getElementById('wa_preview_a');
-              if (prev) prev.textContent = 'Imágenes subidas correctamente';
+              var g = data.guardadas || convertidas.length;
+              if (prev) prev.textContent = g + ' imagen(es) guardada(s) ✓';
               PWA.toast('Imágenes guardadas ✓', 'ok');
             });
           }

@@ -59,6 +59,99 @@ if (!empty($_POST)) {
 $option = isset($input['option']) ? $input['option'] : '';
 error_log('[PWA] option=' . $option . ' userid=' . $_SESSION['UserID']);
 
+// ── GuardarAdjuntos: manejado directamente para garantizar ruta y permisos ──
+if ($option === 'GuardarAdjuntos') {
+    $u_movimiento = isset($input['u_oportunidad']) ? intval($input['u_oportunidad']) : 0;
+
+    if ($u_movimiento <= 0) {
+        echo json_encode(['result' => false, 'msjError' => 'Se requiere u_oportunidad']);
+        exit;
+    }
+
+    // Rutas candidatas en orden de preferencia
+    $candidatos = [
+        '/data2/html/erpdistribucion/images/prospectos',
+        '/var/www/html/erpdistribucion/images/prospectos',
+    ];
+    $dirImg = null;
+    foreach ($candidatos as $c) {
+        if (!is_dir($c)) {
+            @mkdir($c, 0775, true);
+        }
+        if (is_dir($c) && is_writable($c)) {
+            $dirImg = $c;
+            break;
+        }
+    }
+
+    if ($dirImg === null) {
+        error_log('[PWA GuardarAdjuntos] No se encontró directorio escribible. Candidatos: ' . implode(', ', $candidatos));
+        echo json_encode(['result' => false, 'msjError' => 'No hay directorio de imágenes disponible']);
+        exit;
+    }
+
+    error_log('[PWA GuardarAdjuntos] Usando directorio: ' . $dirImg);
+
+    $imagenesJson = isset($input['imagenesconvertidas']) ? $input['imagenesconvertidas'] : '[]';
+    $imagenes = json_decode($imagenesJson);
+    $guardadas = 0;
+    $errores = 0;
+
+    if (is_array($imagenes) && count($imagenes) > 0) {
+        DB_Txn_Begin($db);
+        try {
+            foreach ($imagenes as $img) {
+                if (empty($img->cadena) || empty($img->nombre) || empty($img->tipo)) {
+                    $errores++;
+                    continue;
+                }
+
+                $nombreSanitizado = preg_replace('/[^a-zA-Z0-9_.\-]/', '_', basename($img->nombre));
+                $rutaFisica = $dirImg . '/' . $nombreSanitizado;
+
+                // Decodificar base64 (formato: data:image/jpeg;base64,/9j/...)
+                $partes = explode(',', $img->cadena, 2);
+                $base64Data = isset($partes[1]) ? $partes[1] : $partes[0];
+                $binario = base64_decode($base64Data);
+
+                if ($binario === false || strlen($binario) < 100) {
+                    error_log('[PWA GuardarAdjuntos] base64 inválido para: ' . $nombreSanitizado);
+                    $errores++;
+                    continue;
+                }
+
+                if (file_put_contents($rutaFisica, $binario) === false) {
+                    error_log('[PWA GuardarAdjuntos] Error escribiendo: ' . $rutaFisica);
+                    $errores++;
+                    continue;
+                }
+
+                $nombre_esc   = DB_escape_string($nombreSanitizado, $db);
+                $umov_esc     = DB_escape_string((string)$u_movimiento, $db);
+                $userid_esc   = DB_escape_string($_SESSION['UserID'], $db);
+                $ruta_esc     = DB_escape_string($rutaFisica, $db);
+                $tipo_esc     = DB_escape_string($img->tipo, $db);
+
+                $sql = "INSERT INTO documents (name, typedoc, user_register, public, register_date, tipo, archivoblob)
+                        VALUES ('$nombre_esc', '$umov_esc', '$userid_esc', '$ruta_esc', CURDATE(), '$tipo_esc', '')";
+
+                ProspectosEjecutarConsulta($sql, $db, 'GuardarAdjuntos-insert');
+                $guardadas++;
+            }
+
+            DB_Txn_Commit($db);
+            echo json_encode(['result' => true, 'guardadas' => $guardadas, 'errores' => $errores]);
+        } catch (Exception $e) {
+            DB_Txn_Rollback($db);
+            error_log('[PWA GuardarAdjuntos] Exception: ' . $e->getMessage());
+            echo json_encode(['result' => false, 'msjError' => $e->getMessage()]);
+        }
+    } else {
+        echo json_encode(['result' => true, 'guardadas' => 0, 'errores' => 0]);
+    }
+    exit;
+}
+
 // Passthrough normal para actividades y otros
 if (in_array($option, array(
     'GuardarActividad',
@@ -73,7 +166,6 @@ if (in_array($option, array(
     'GuardarEtapaC',
     'ModificarEtapaC',
     'GuardarEtapaD',
-    'GuardarAdjuntos',
     'EliminarImagen',
     'ObtenerDocAdmin',
     'SolicitarAutorizarCotizacion',
