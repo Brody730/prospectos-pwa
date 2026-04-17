@@ -16,8 +16,17 @@ include($PathPrefix . 'includes/ConnectDB.inc');
 include($PathPrefix . 'includes/SQL_CommonFunctions.inc');
 include($PathPrefix . 'includes/SecurityFunctions.inc');
 
-ob_end_clean();
+// Limpiar TODOS los buffers que los includes puedan haber dejado abiertos.
+// SecurityFunctions.inc puede abrir su propio ob_start() sin cerrarlo; un solo
+// ob_end_clean() cerraría el suyo dejando el nuestro (nivel 1) activo con HTML acumulado.
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
 header('Content-Type: application/json');
+
+// Buffer de seguridad: captura cualquier HTML que escape a los ob internos de DB_query.
+// La respuesta se construye en $response y se emite UNA sola vez al final.
+ob_start();
 
 function ProspectosAgendaEjecutarConsulta($sql, $db, $contexto)
 {
@@ -61,9 +70,12 @@ function ProspectosAgendaWhereVendedor($userid)
     ) ";
 }
 
+$response = null;
+
 try {
 
 if (!isset($_SESSION['UserID']) || empty($_SESSION['UserID'])) {
+    ob_end_clean();
     echo json_encode(array('result' => false, 'msjError' => 'No autorizado'));
     exit;
 }
@@ -131,7 +143,7 @@ switch ($opcion) {
 
         $res = ProspectosAgendaEjecutarConsulta($sql, $db, 'TraerAgenda');
         if ($res === false) {
-            echo json_encode(array('result' => false, 'contenido' => array(), 'msjError' => 'Error de base de datos'));
+            $response = array('result' => false, 'contenido' => array(), 'msjError' => 'Error de base de datos');
             break;
         }
 
@@ -140,13 +152,13 @@ switch ($opcion) {
             $items[] = $row;
         }
 
-        echo json_encode(array('result' => true, 'contenido' => $items));
+        $response = array('result' => true, 'contenido' => $items);
         break;
 
     case 'TraerHistorial':
         $uMovimiento = isset($input['u_movimiento']) ? intval($input['u_movimiento']) : 0;
         if ($uMovimiento <= 0) {
-            echo json_encode(array('result' => false, 'contenido' => array(), 'msjError' => 'u_movimiento invalido'));
+            $response = array('result' => false, 'contenido' => array(), 'msjError' => 'u_movimiento invalido');
             break;
         }
 
@@ -173,7 +185,7 @@ switch ($opcion) {
 
         $res = ProspectosAgendaEjecutarConsulta($sql, $db, 'TraerHistorial');
         if ($res === false) {
-            echo json_encode(array('result' => false, 'contenido' => array(), 'msjError' => 'Error de base de datos'));
+            $response = array('result' => false, 'contenido' => array(), 'msjError' => 'Error de base de datos');
             break;
         }
 
@@ -182,7 +194,7 @@ switch ($opcion) {
             $items[] = $row;
         }
 
-        echo json_encode(array('result' => true, 'contenido' => $items));
+        $response = array('result' => true, 'contenido' => $items);
         break;
 
     case 'TraerTiposActividad':
@@ -191,7 +203,7 @@ switch ($opcion) {
                 ORDER BY descripcion ASC";
         $res = ProspectosAgendaEjecutarConsulta($sql, $db, 'TraerTiposActividad');
         if ($res === false) {
-            echo json_encode(array('result' => false, 'contenido' => array(), 'msjError' => 'Error de base de datos'));
+            $response = array('result' => false, 'contenido' => array(), 'msjError' => 'Error de base de datos');
             break;
         }
 
@@ -200,7 +212,7 @@ switch ($opcion) {
             $items[] = $row;
         }
 
-        echo json_encode(array('result' => true, 'contenido' => $items));
+        $response = array('result' => true, 'contenido' => $items);
         break;
 
     case 'ProspectosNecesitanAtencion':
@@ -239,7 +251,7 @@ switch ($opcion) {
 
         $res = ProspectosAgendaEjecutarConsulta($sql, $db, 'ProspectosNecesitanAtencion');
         if ($res === false) {
-            echo json_encode(array('result' => false, 'contenido' => array(), 'msjError' => 'Error de base de datos'));
+            $response = array('result' => false, 'contenido' => array(), 'msjError' => 'Error de base de datos');
             break;
         }
 
@@ -257,15 +269,19 @@ switch ($opcion) {
             );
         }
 
-        echo json_encode(array('result' => true, 'contenido' => $items));
+        $response = array('result' => true, 'contenido' => $items);
         break;
 
     default:
-        echo json_encode(array('result' => false, 'msjError' => 'Opcion no reconocida'));
+        $response = array('result' => false, 'msjError' => 'Opcion no reconocida');
         break;
 }
 
 } catch (Exception $e) {
-    echo json_encode(array('result' => false, 'msjError' => 'Error interno: ' . $e->getMessage()));
+    $response = array('result' => false, 'msjError' => 'Error interno: ' . $e->getMessage());
 }
+
+// Descartar cualquier HTML que haya escapado al buffer de seguridad y emitir solo JSON válido
+ob_end_clean();
+echo json_encode($response !== null ? $response : array('result' => false, 'msjError' => 'Error interno'));
 ?>
