@@ -1078,8 +1078,9 @@ PWA.CambiarEtapa = {
     });
     
     document.body.appendChild(backdrop);
+    document.documentElement.classList.add('body-modal-open');
   },
-  
+
   confirmar: function(uMovimiento, nuevoIdstatus, labelNuevo) {
     var esTerminal = PWA.CambiarEtapa.esTerminal(nuevoIdstatus);
     var fecha = document.getElementById('etapaFechaCompromiso').value || PWA.fechaHoy();
@@ -1156,6 +1157,9 @@ PWA.CambiarEtapa = {
   cerrar: function() {
     var bd = document.getElementById('cambiarEtapaBackdrop');
     if (bd) bd.parentNode.removeChild(bd);
+    if (!document.querySelector('.modal-backdrop.open')) {
+      document.documentElement.classList.remove('body-modal-open');
+    }
   },
   
   mostrarAvisoPruebas: function() {
@@ -1181,11 +1185,15 @@ PWA.CambiarEtapa = {
     });
     
     document.body.appendChild(backdrop);
+    document.documentElement.classList.add('body-modal-open');
   },
-  
+
   cerrarAviso: function() {
     var bd = document.getElementById('avisoPruebasBackdrop');
     if (bd) bd.parentNode.removeChild(bd);
+    if (!document.querySelector('.modal-backdrop.open')) {
+      document.documentElement.classList.remove('body-modal-open');
+    }
   }
 };
 
@@ -1446,6 +1454,7 @@ PWA.Detalle = {
     backdrop.id = 'detalleBackdrop';
     backdrop.innerHTML = '<div class="modal-sheet"><div class="modal-handle"></div><div class="spinner"></div></div>';
     document.body.appendChild(backdrop);
+    document.documentElement.classList.add('body-modal-open');
 
     backdrop.addEventListener('click', function(e) {
       if (e.target === backdrop) PWA.Detalle.cerrar();
@@ -1515,6 +1524,9 @@ PWA.Detalle = {
   cerrar: function() {
     var bd = document.getElementById('detalleBackdrop');
     if (bd) bd.parentNode.removeChild(bd);
+    if (!document.querySelector('.modal-backdrop.open')) {
+      document.documentElement.classList.remove('body-modal-open');
+    }
   }
 };
 
@@ -1599,6 +1611,7 @@ PWA.NuevaActividad = {
     });
 
     document.body.appendChild(backdrop);
+    document.documentElement.classList.add('body-modal-open');
 
     PWA.NuevaActividad.cargarTipos(function() {
       var select = document.getElementById('actTipo');
@@ -1699,6 +1712,9 @@ PWA.NuevaActividad = {
   cerrar: function() {
     var bd = document.getElementById('actividadBackdrop');
     if (bd) bd.parentNode.removeChild(bd);
+    if (!document.querySelector('.modal-backdrop.open')) {
+      document.documentElement.classList.remove('body-modal-open');
+    }
   }
 };
 

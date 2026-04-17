@@ -3,7 +3,10 @@
     "allow": [
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(curl -s -X POST http://localhost/prospectos/api/agenda.php -H 'Content-Type: application/json' -d '{\"opcion\":\"TraerHistorial\",\"u_movimiento\":31136}')"
+      "Bash(curl -s -X POST http://localhost/prospectos/api/agenda.php -H 'Content-Type: application/json' -d '{\"opcion\":\"TraerHistorial\",\"u_movimiento\":31136}')",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git merge *)"
     ]
   }
 }
