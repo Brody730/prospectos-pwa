@@ -295,23 +295,74 @@ PWA.cargarHistorialDetalle = function(uMovimiento) {
     opcion: 'TraerHistorial',
     u_movimiento: uMovimiento
   }, function(err, data) {
-    var items = (!err && data && data.result) ? (data.contenido || []) : [];
-    var html = '';
+    if (err) {
+      cont.innerHTML = '<div style="font-size:12px;color:var(--pwa-danger)">Error al cargar historial</div>';
+      console.error('[Historial] Error:', err);
+      return;
+    }
+
+    var items = (data && data.result) ? (data.contenido || []) : [];
 
     if (items.length === 0) {
       cont.innerHTML = '<div style="font-size:12px;color:var(--pwa-muted)">Sin actividades previas</div>';
       return;
     }
 
+    // Iconos por tipo de actividad
+    var iconosTipo = {
+      'Llamada Telefónica':  '📞',
+      'Llamada Telefonica':  '📞',
+      'Envío de Correo':     '✉',
+      'Envio de Correo':     '✉',
+      'Visita en Sitio':     '🚗',
+      'Mensaje':             '💬',
+      'Otro Medio':          '📌',
+      'Re-Agendar':          '🔁',
+      'Investigacion':       '🔍',
+      'Investigación':       '🔍'
+    };
+
+    var hoy = PWA.fechaHoy();
+    var html = '';
+
     items.forEach(function(item) {
-      html += '<div class="historial-item">';
-      html += '<div class="historial-top">';
-      html += '<span style="font-weight:700">' + ((item.fecha_compromiso || '').substring(0, 10) || 'Sin fecha') + ' ' + PWA.formatoHora(item.hora) + '</span>';
-      html += '<span class="historial-type" style="background:' + (item.color || 'var(--pwa-card)') + '">' + (item.tipo || 'Actividad') + '</span>';
+      var fecha = (item.fecha_compromiso || '').substring(0, 10);
+      var hora = PWA.formatoHora(item.hora);
+      var tipo = item.tipo || 'Actividad';
+      var icono = iconosTipo[tipo] || '📌';
+      var color = item.color || 'var(--pwa-muted)';
+      var usuario = item.usuario || '';
+      var esFinal = parseInt(item.es_final || 0, 10) === 1;
+      var esVencida = !esFinal && fecha && fecha < hoy;
+
+      // Línea vertical de timeline
+      html += '<div class="historial-item" style="position:relative;padding:10px 0 10px 28px;border-left:2px solid ' + color + ';margin-left:8px;margin-bottom:4px">';
+
+      // Punto del timeline
+      html += '<div style="position:absolute;left:-7px;top:14px;width:12px;height:12px;border-radius:50%;background:' + color + ';border:2px solid var(--pwa-card)"></div>';
+
+      // Fecha + hora + badge tipo
+      html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">';
+      html += '<span style="font-size:13px;font-weight:700">' + fecha + ' ' + hora + '</span>';
+      html += '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:' + color + ';color:white">' + icono + ' ' + tipo + '</span>';
+      if (esVencida) {
+        html += '<span style="font-size:10px;color:var(--pwa-danger);font-weight:700">VENCIDA</span>';
+      } else if (esFinal) {
+        html += '<span style="font-size:10px;color:var(--pwa-accent2)">✓ Completada</span>';
+      }
       html += '</div>';
-      if (item.concepto) html += '<div style="font-size:13px;margin-top:6px">' + item.concepto + '</div>';
-      if (item.descripcion) html += '<div style="font-size:12px;color:var(--pwa-muted);margin-top:4px">' + item.descripcion + '</div>';
-      if (item.estatus_tarea) html += '<div style="font-size:11px;color:var(--pwa-muted);margin-top:6px">Estatus: ' + item.estatus_tarea + '</div>';
+
+      // Descripción (prioridad: descripcion > concepto > titulo)
+      var textoDesc = item.descripcion || item.concepto || item.titulo || '';
+      if (textoDesc) {
+        html += '<div style="font-size:13px;color:var(--pwa-text);margin-bottom:3px">' + textoDesc + '</div>';
+      }
+
+      // Usuario que registró
+      if (usuario) {
+        html += '<div style="font-size:11px;color:var(--pwa-muted)">— ' + usuario + '</div>';
+      }
+
       html += '</div>';
     });
 
@@ -1514,8 +1565,8 @@ PWA.NuevaActividad = {
           '</select>',
         '</div>',
         '<div class="form-group">',
-          '<label class="form-label">Título</label>',
-          '<input class="form-input" id="actTitulo" type="text" placeholder="Ej: Visita de seguimiento">',
+          '<label class="form-label">Título <span style="font-weight:400;color:var(--pwa-muted);font-size:11px">(opcional)</span></label>',
+          '<input class="form-input" id="actTitulo" type="text" placeholder="Ej: Segundo intento, no contestó">',
         '</div>',
         '<div class="form-group">',
           '<label class="form-label">Fecha</label>',
@@ -1558,7 +1609,13 @@ PWA.NuevaActividad = {
     var hora  = document.getElementById('actHora').value;
     var desc  = document.getElementById('actDesc').value.trim();
 
-    if (!titulo) { PWA.toast('Ingresa un título', 'warn'); return; }
+    // Título opcional: si vacío, usar el nombre del tipo como default
+    if (!titulo) {
+      var tipoTextoDefault = (tipoSelect && tipoSelect.options[tipoSelect.selectedIndex])
+        ? tipoSelect.options[tipoSelect.selectedIndex].text
+        : 'Actividad';
+      titulo = tipoTextoDefault;
+    }
     if (!fecha)  { PWA.toast('Selecciona fecha', 'warn'); return; }
 
     var partesHora = (hora || '09:00').split(':');

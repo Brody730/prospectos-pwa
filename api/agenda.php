@@ -150,23 +150,26 @@ switch ($opcion) {
             break;
         }
 
-        $whereSalesman = ProspectosAgendaWhereVendedor($userid);
+        // Historial: sin filtro de vendedor. Si ya puede ver el detalle, puede ver el historial.
         $sql = "SELECT
+                    tm.u_movimiento AS u_task,
                     tm.fecha_compromiso,
                     tm.hora,
                     ot.descripcion AS tipo,
                     ot.color,
                     tm.concepto,
                     tm.descripcion,
-                    ps.nombre AS estatus_tarea
+                    tm.titulo,
+                    tm.TipoMovimientoId,
+                    tm.u_user AS usuario,
+                    ps.nombre AS estatus_tarea,
+                    IFNULL(ps.final, 0) AS es_final
                 FROM tasks_movimientos tm
-                INNER JOIN prospect_movimientos pm ON tm.u_prospecto = pm.u_movimiento
                 LEFT JOIN oportunidad_tipo ot ON tm.TipoMovimientoId = ot.id
                 LEFT JOIN prdstatussimple ps ON tm.idstatus = ps.idstatus
-                WHERE tm.u_prospecto = '" . $uMovimiento . "'
-                " . $whereSalesman . "
-                ORDER BY tm.fecha_compromiso DESC, tm.u_movimiento DESC
-                LIMIT 5";
+                WHERE tm.u_prospecto = " . $uMovimiento . "
+                ORDER BY tm.fecha_compromiso DESC, tm.hora DESC, tm.u_movimiento DESC
+                LIMIT 50";
 
         $res = ProspectosAgendaEjecutarConsulta($sql, $db, 'TraerHistorial');
         if ($res === false) {
