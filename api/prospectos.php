@@ -81,14 +81,19 @@ if ($option === 'diagnosticoImagenes') {
     // Intentar crear el directorio de prospectos
     $target = '/data2/html/erpdistribucion/images/prospectos';
     $mkdirOk = is_dir($target) ? 'ya existe' : (@mkdir($target, 0775, true) ? 'creado OK' : 'FALLO');
-    echo json_encode([
+    $phpUser = 'n/a';
+    if (function_exists('posix_geteuid')) {
+        $pw = posix_getpwuid(posix_geteuid());
+        $phpUser = isset($pw['name']) ? $pw['name'] : 'n/a';
+    }
+    echo json_encode(array(
         'result'       => true,
-        'document_root'=> $_SERVER['DOCUMENT_ROOT'] ?? '',
+        'document_root'=> isset($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] : '',
         'script_dir'   => __DIR__,
-        'php_user'     => function_exists('posix_geteuid') ? posix_getpwuid(posix_geteuid())['name'] ?? 'n/a' : 'posix no disponible',
+        'php_user'     => $phpUser,
         'mkdir_data2'  => $mkdirOk,
         'paths'        => $info,
-    ], JSON_PRETTY_PRINT);
+    ), JSON_PRETTY_PRINT);
     exit;
 }
 
