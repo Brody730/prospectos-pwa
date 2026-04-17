@@ -248,7 +248,10 @@ function renderDetalle(p) {
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">',
         '<div>',
           '<h2 style="margin:0 0 8px;font-size:22px">' + nombre + '</h2>',
+          '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">',
           '<div class="etapa-badge" style="background:' + badgeColor + '">' + etapaNombre + ' · ' + (p.nombrealterno || '—') + '</div>',
+          '<button class="btn btn-ghost" style="padding:6px 12px;min-height:34px;font-size:12px" onclick="PWA.CambiarEtapa.abrir(\'' + p.u_movimiento + '\',\'' + p.idstatus + '\',\'' + nombre.replace(/\'/g, "\\'") + '\')">⇆ Cambiar</button>',
+          '</div>',
         '</div>',
       '</div>',
       '<p style="margin:12px 0 8px;color:var(--pwa-muted)">' + (p.direccion || 'Sin dirección registrada') + '</p>',
@@ -877,6 +880,254 @@ PWA.Panel = {
     html += '</div>';
 
     document.getElementById('view-panel').innerHTML = html;
+  }
+};
+
+/* ============================================================
+   CAMBIAR ETAPA — Feature con feature flag
+   ============================================================ */
+PWA.CambiarEtapa = {
+  // ⚠️ FEATURE FLAG — cambiar a null para activar para todos
+  soloParaProspecto: 31136,  // prospecto de prueba
+  
+  // Matriz de transiciones permitidas
+  // idstatus: 1=A(Nuevo) 2=B(Levant) 3=C(CotSol) 4=D(CotEnt) 5=E(Descart) 6=V(Venta) 7=S(Seguim) 8=X(Cancel)
+  transicionesPermitidas: {
+    1: [2, 5, 7, 8],           // A → B, S, E, X
+    2: [1, 3, 5, 7, 8],        // B → A, C, S, E, X
+    3: [1, 2, 4, 5, 7, 8],     // C → B, A, D, S, E, X
+    4: [1, 2, 3, 5, 6, 7, 8],  // D → A, B, C, V, S, E, X
+    7: [1, 2, 3, 4, 5, 8]      // S → A, B, C, D, E, X (reactivar)
+    // 5 (E), 6 (V), 8 (X) son terminales → no se pueden cambiar
+  },
+  
+  // Info de cada etapa (nombre + color)
+  etapas: {
+    1: { label: 'Nuevo',              letra: 'A', color: '#4f8ef7', avance: true  },
+    2: { label: 'Levantamiento',      letra: 'B', color: '#22d3ee', avance: true  },
+    3: { label: 'Cotización Solic.',  letra: 'C', color: '#f59e0b', avance: true  },
+    4: { label: 'Cotización Entreg.', letra: 'D', color: '#fb923c', avance: true  },
+    5: { label: 'Descartado',         letra: 'E', color: '#ef4444', terminal: true },
+    6: { label: 'Venta',              letra: 'V', color: '#34d399', terminal: true },
+    7: { label: 'Seguimiento',        letra: 'S', color: '#a855f7', avance: false },
+    8: { label: 'Cancelado',          letra: 'X', color: '#8892a4', terminal: true }
+  },
+  
+  esTerminal: function(idstatus) {
+    var info = PWA.CambiarEtapa.etapas[idstatus];
+    return !!(info && info.terminal);
+  },
+  
+  estaHabilitadoPara: function(uMovimiento) {
+    var flag = PWA.CambiarEtapa.soloParaProspecto;
+    if (flag === null || typeof flag === 'undefined') return true;
+    return parseInt(uMovimiento, 10) === parseInt(flag, 10);
+  },
+  
+  abrir: function(uMovimiento, idstatusActual, nombre) {
+    // Check de feature flag
+    if (!PWA.CambiarEtapa.estaHabilitadoPara(uMovimiento)) {
+      PWA.CambiarEtapa.mostrarAvisoPruebas();
+      return;
+    }
+    
+    idstatusActual = parseInt(idstatusActual, 10);
+    
+    // Check terminal
+    if (PWA.CambiarEtapa.esTerminal(idstatusActual)) {
+      PWA.toast('Esta etapa es final y no se puede modificar', 'warn');
+      return;
+    }
+    
+    var transiciones = PWA.CambiarEtapa.transicionesPermitidas[idstatusActual] || [];
+    if (transiciones.length === 0) {
+      PWA.toast('No hay transiciones permitidas desde esta etapa', 'warn');
+      return;
+    }
+    
+    // Armar botones
+    var etapaActualInfo = PWA.CambiarEtapa.etapas[idstatusActual] || { label: 'Desconocida', letra: '?' };
+    var botonesHtml = '';
+    
+    // Separar botones: avance, retroceso, laterales (S), terminales (E/X/V)
+    var avance = [], retroceso = [], laterales = [], terminales = [];
+    transiciones.forEach(function(idNuevo) {
+      var info = PWA.CambiarEtapa.etapas[idNuevo];
+      if (!info) return;
+      if (info.terminal) {
+        terminales.push({ id: idNuevo, info: info });
+      } else if (idNuevo === 7) {
+        laterales.push({ id: idNuevo, info: info });
+      } else if (idNuevo > idstatusActual) {
+        avance.push({ id: idNuevo, info: info });
+      } else {
+        retroceso.push({ id: idNuevo, info: info });
+      }
+    });
+    
+    function botonHtml(item, clase) {
+      return '<button class="btn-etapa ' + (clase || '') + '" ' +
+             'style="background:' + item.info.color + ';color:white;border:none;padding:14px 12px;border-radius:10px;font-size:14px;font-weight:600;width:100%;margin-bottom:8px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px" ' +
+             'onclick="PWA.CambiarEtapa.confirmar(' + uMovimiento + ',' + item.id + ',\'' + item.info.label.replace(/'/g, '\\\'') + '\')">' +
+             '<span style="background:rgba(0,0,0,0.2);padding:4px 8px;border-radius:4px;font-size:11px;font-weight:700">' + item.info.letra + '</span>' +
+             '<span>' + item.info.label + '</span>' +
+             '</button>';
+    }
+    
+    if (avance.length > 0) {
+      botonesHtml += '<div style="font-size:11px;color:var(--pwa-muted);margin:8px 0 6px">AVANZAR</div>';
+      avance.forEach(function(item) { botonesHtml += botonHtml(item); });
+    }
+    
+    if (retroceso.length > 0) {
+      botonesHtml += '<div style="font-size:11px;color:var(--pwa-muted);margin:12px 0 6px">RETROCEDER</div>';
+      retroceso.forEach(function(item) { botonesHtml += botonHtml(item); });
+    }
+    
+    if (laterales.length > 0) {
+      botonesHtml += '<div style="font-size:11px;color:var(--pwa-muted);margin:12px 0 6px">OTRAS</div>';
+      laterales.forEach(function(item) { botonesHtml += botonHtml(item); });
+    }
+    
+    if (terminales.length > 0) {
+      botonesHtml += '<div style="font-size:11px;color:var(--pwa-muted);margin:12px 0 6px">FINALIZAR (irreversible)</div>';
+      terminales.forEach(function(item) { botonesHtml += botonHtml(item); });
+    }
+    
+    // Render bottom sheet
+    var backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop open';
+    backdrop.id = 'cambiarEtapaBackdrop';
+    backdrop.innerHTML = [
+      '<div class="modal-sheet">',
+        '<div class="modal-handle"></div>',
+        '<div class="modal-title">Cambiar etapa</div>',
+        '<div style="font-size:13px;color:var(--pwa-muted);margin-bottom:4px">' + (nombre || '') + '</div>',
+        '<div style="font-size:12px;margin-bottom:16px">Etapa actual: <strong style="color:' + (PWA.CambiarEtapa.etapas[idstatusActual] ? PWA.CambiarEtapa.etapas[idstatusActual].color : '#888') + '">' + etapaActualInfo.label + ' (' + etapaActualInfo.letra + ')</strong></div>',
+        '<div class="form-group">',
+          '<label class="form-label">Fecha de compromiso para siguiente acción</label>',
+          '<input class="form-input" id="etapaFechaCompromiso" type="date" value="' + PWA.fechaHoy() + '">',
+        '</div>',
+        '<div style="max-height:50vh;overflow-y:auto;padding:4px 0">',
+          botonesHtml,
+        '</div>',
+        '<button class="btn btn-ghost btn-full" style="margin-top:12px" onclick="PWA.CambiarEtapa.cerrar()">Cancelar</button>',
+      '</div>'
+    ].join('');
+    
+    backdrop.addEventListener('click', function(e) {
+      if (e.target === backdrop) PWA.CambiarEtapa.cerrar();
+    });
+    
+    document.body.appendChild(backdrop);
+  },
+  
+  confirmar: function(uMovimiento, nuevoIdstatus, labelNuevo) {
+    var esTerminal = PWA.CambiarEtapa.esTerminal(nuevoIdstatus);
+    var fecha = document.getElementById('etapaFechaCompromiso').value || PWA.fechaHoy();
+    
+    var ejecutar = function() {
+      PWA.CambiarEtapa.ejecutar(uMovimiento, nuevoIdstatus, fecha);
+    };
+    
+    if (esTerminal) {
+      var msj = '¿Marcar prospecto como "' + labelNuevo + '"?\n\nEste cambio es DEFINITIVO y no se puede deshacer.';
+      if (confirm(msj)) ejecutar();
+    } else {
+      ejecutar();
+    }
+  },
+  
+  ejecutar: function(uMovimiento, nuevoIdstatus, fecha) {
+    var prospecto = PWA.state.prospectoActivo || 
+                    (PWA.state.prospectos.filter(function(p) { return p.u_movimiento == uMovimiento; })[0]);
+    var salesmanActual = prospecto ? (prospecto.salesman || '') : '';
+    
+    var payload = {
+      option: 'GuardarCambioEstatus',
+      u_movimiento: String(uMovimiento),
+      cmbCambiarEstatus: String(nuevoIdstatus),
+      cmbVendedor03: String(salesmanActual),
+      fechacompromiso: fecha,
+      userid: PWA.session.userid
+    };
+    
+    console.log('[CambiarEtapa] Enviando:', payload);
+    
+    if (!navigator.onLine) {
+      SyncDB.encolar('cambio_etapa', payload, function() {
+        PWA.toast('Guardado offline — se enviará al reconectar', 'warn');
+        PWA.CambiarEtapa.cerrar();
+      });
+      return;
+    }
+    
+    PWA.apiPost('api/prospectos.php', payload, function(err, data) {
+      if (err || !data || !data.result) {
+        var msj = (data && data.msjError) ? data.msjError : 'Error al cambiar etapa';
+        PWA.toast(msj, 'warn');
+        // Si fue error de red, encolar
+        if (err) {
+          SyncDB.encolar('cambio_etapa', payload);
+          PWA.toast('Guardado offline', 'warn');
+        }
+        return;
+      }
+      
+      PWA.toast('Etapa actualizada ✓', 'ok');
+      PWA.CambiarEtapa.cerrar();
+      
+      // Actualizar state local
+      if (prospecto) {
+        var infoEtapa = PWA.CambiarEtapa.etapas[nuevoIdstatus];
+        prospecto.idstatus = String(nuevoIdstatus);
+        prospecto.etapa = infoEtapa ? infoEtapa.label : prospecto.etapa;
+        prospecto.nombrealterno = infoEtapa ? infoEtapa.letra : prospecto.nombrealterno;
+      }
+      
+      // Refrescar vista actual
+      if (PWA.state.vistaActual === 'detalle' && PWA.state.prospectoActivo) {
+        renderDetalle(PWA.state.prospectoActivo);
+      }
+      
+      // Invalidar cache para que Lista recargue la próxima
+      SyncDB.guardarProspectosCache(PWA.state.prospectos);
+    });
+  },
+  
+  cerrar: function() {
+    var bd = document.getElementById('cambiarEtapaBackdrop');
+    if (bd) bd.parentNode.removeChild(bd);
+  },
+  
+  mostrarAvisoPruebas: function() {
+    var backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop open';
+    backdrop.id = 'avisoPruebasBackdrop';
+    backdrop.innerHTML = [
+      '<div class="modal-sheet" style="text-align:center;padding:24px 20px">',
+        '<div style="font-size:48px;margin-bottom:12px">🧪</div>',
+        '<div style="font-size:18px;font-weight:700;margin-bottom:10px">Función en pruebas</div>',
+        '<div style="font-size:14px;color:var(--pwa-muted);line-height:1.5;margin-bottom:8px">',
+          'Esta funcionalidad está en fase de pruebas. Solo está habilitada para un prospecto específico de QA.',
+        '</div>',
+        '<div style="font-size:13px;color:var(--pwa-muted);line-height:1.5;margin-bottom:20px">',
+          'Si necesitas cambiar la etapa de este prospecto, usa el ERP por ahora.',
+        '</div>',
+        '<button class="btn btn-primary btn-full" onclick="PWA.CambiarEtapa.cerrarAviso()">Entendido</button>',
+      '</div>'
+    ].join('');
+    
+    backdrop.addEventListener('click', function(e) {
+      if (e.target === backdrop) PWA.CambiarEtapa.cerrarAviso();
+    });
+    
+    document.body.appendChild(backdrop);
+  },
+  
+  cerrarAviso: function() {
+    var bd = document.getElementById('avisoPruebasBackdrop');
+    if (bd) bd.parentNode.removeChild(bd);
   }
 };
 

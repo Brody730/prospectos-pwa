@@ -92,6 +92,83 @@ foreach ($queue as $item) {
             DB_query($sql, $db);
             break;
 
+            case 'cambio_etapa':
+            // Validar feature flag (igual que prospectos.php)
+            $FEATURE_FLAG_PROSPECTO_PRUEBA = 31136;  // null para rollout total
+            
+            $uMovimiento     = isset($payload['u_movimiento'])      ? intval($payload['u_movimiento'])      : 0;
+            $nuevoStatus     = isset($payload['cmbCambiarEstatus']) ? intval($payload['cmbCambiarEstatus']) : 0;
+            $salesman        = isset($payload['cmbVendedor03'])     ? intval($payload['cmbVendedor03'])     : 0;
+            $fechaCompromiso = isset($payload['fechacompromiso'])   ? trim($payload['fechacompromiso'])     : '';
+            
+            // 1. Feature flag
+            if ($FEATURE_FLAG_PROSPECTO_PRUEBA !== null && $uMovimiento !== $FEATURE_FLAG_PROSPECTO_PRUEBA) {
+                error_log('[PWA SYNC cambio_etapa BLOCKED] userid=' . $userid . ' u_movimiento=' . $uMovimiento . ' (feature flag solo permite ' . $FEATURE_FLAG_PROSPECTO_PRUEBA . ')');
+                $ok = false;
+                $errors[] = array('action' => 'cambio_etapa', 'error' => 'Funcion en pruebas, prospecto no permitido');
+                break;
+            }
+            
+            // 2. Parametros obligatorios
+            if ($uMovimiento <= 0 || $nuevoStatus <= 0 || empty($fechaCompromiso)) {
+                $ok = false;
+                $errors[] = array('action' => 'cambio_etapa', 'error' => 'Parametros invalidos');
+                break;
+            }
+            
+            // 3. Formato fecha YYYY-MM-DD
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCompromiso)) {
+                $ok = false;
+                $errors[] = array('action' => 'cambio_etapa', 'error' => 'Formato fecha invalido');
+                break;
+            }
+            
+            // 4. Obtener estatus actual y validar transicion
+            $sqlActual = "SELECT idstatus FROM prospect_movimientos WHERE u_movimiento = " . $uMovimiento;
+            $resActual = DB_query($sqlActual, $db);
+            $rowActual = $resActual ? DB_fetch_array($resActual) : null;
+            
+            if (!$rowActual) {
+                $ok = false;
+                $errors[] = array('action' => 'cambio_etapa', 'error' => 'Prospecto no encontrado');
+                break;
+            }
+            
+            $statusActual = intval($rowActual['idstatus']);
+            
+            $transicionesPermitidas = array(
+                1 => array(2, 5, 7, 8),
+                2 => array(1, 3, 5, 7, 8),
+                3 => array(1, 2, 4, 5, 7, 8),
+                4 => array(1, 2, 3, 5, 6, 7, 8),
+                7 => array(1, 2, 3, 4, 5, 8)
+            );
+            
+            if (!isset($transicionesPermitidas[$statusActual])) {
+                error_log('[PWA SYNC cambio_etapa] Etapa terminal, ignorado. u_movimiento=' . $uMovimiento . ' status=' . $statusActual);
+                $ok = false;
+                $errors[] = array('action' => 'cambio_etapa', 'error' => 'Etapa terminal');
+                break;
+            }
+            
+            if (!in_array($nuevoStatus, $transicionesPermitidas[$statusActual])) {
+                error_log('[PWA SYNC cambio_etapa INVALID] userid=' . $userid . ' u_movimiento=' . $uMovimiento . ' ' . $statusActual . ' -> ' . $nuevoStatus);
+                $ok = false;
+                $errors[] = array('action' => 'cambio_etapa', 'error' => 'Transicion no permitida');
+                break;
+            }
+            
+            // 5. Ejecutar el mismo UPDATE que hace el ERP (GuardarCambioEstatus)
+            error_log('[PWA SYNC cambio_etapa] userid=' . $userid . ' u_movimiento=' . $uMovimiento . ' de=' . $statusActual . ' a=' . $nuevoStatus . ' fecha=' . $fechaCompromiso);
+            
+            $sql = "UPDATE prospect_movimientos 
+                    SET idstatus = '" . $nuevoStatus . "', 
+                        salesman = '" . $salesman . "', 
+                        fecha_compromiso = '" . $fechaCompromiso . "' 
+                    WHERE u_movimiento = '" . $uMovimiento . "'";
+            DB_query($sql, $db);
+            break;
+            
         case 'registrar_visita_gps':
             $lat = isset($payload['lat']) ? floatval($payload['lat']) : 0;
             $lng = isset($payload['lng']) ? floatval($payload['lng']) : 0;

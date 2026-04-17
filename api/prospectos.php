@@ -59,7 +59,109 @@ if (!empty($_POST)) {
 $option = isset($input['option']) ? $input['option'] : '';
 error_log('[PWA] option=' . $option . ' userid=' . $_SESSION['UserID']);
 
-if (in_array($option, array('GuardarActividad', 'GuardarCambioEstatus', 'traeultimaposicion', 'obtenerImagenesOportunidad'))) {
+// Passthrough normal para actividades y otros
+if (in_array($option, array('GuardarActividad', 'traeultimaposicion', 'obtenerImagenesOportunidad'))) {
+    $_POST = array_merge($_POST, $input);
+    include($PathPrefix . 'modelo/ProspectV2Modelo.php');
+    exit;
+}
+
+// Passthrough con validación para cambio de etapa (feature PWA)
+if ($option == 'GuardarCambioEstatus') {
+    // 1. Validar feature flag server-side (prospecto de prueba)
+    $uMovimiento = isset($input['u_movimiento']) ? intval($input['u_movimiento']) : 0;
+    $FEATURE_FLAG_PROSPECTO_PRUEBA = 31136;  // null para rollout total
+    
+    if ($FEATURE_FLAG_PROSPECTO_PRUEBA !== null && $uMovimiento !== $FEATURE_FLAG_PROSPECTO_PRUEBA) {
+        error_log('[PWA CambiarEtapa BLOCKED] userid=' . $_SESSION['UserID'] . ' intentó cambiar u_movimiento=' . $uMovimiento . ' pero feature flag solo permite ' . $FEATURE_FLAG_PROSPECTO_PRUEBA);
+        echo json_encode(array(
+            'result' => false,
+            'contenido' => array(),
+            'msjError' => 'Función en pruebas. Solo habilitada para el prospecto de QA.'
+        ));
+        exit;
+    }
+    
+    // 2. Validar parámetros obligatorios
+    $nuevoStatus = isset($input['cmbCambiarEstatus']) ? intval($input['cmbCambiarEstatus']) : 0;
+    $salesman = isset($input['cmbVendedor03']) ? intval($input['cmbVendedor03']) : 0;
+    $fechaCompromiso = isset($input['fechacompromiso']) ? trim($input['fechacompromiso']) : '';
+    
+    if ($uMovimiento <= 0 || $nuevoStatus <= 0 || empty($fechaCompromiso)) {
+        echo json_encode(array(
+            'result' => false,
+            'contenido' => array(),
+            'msjError' => 'Parámetros inválidos'
+        ));
+        exit;
+    }
+    
+    // Validar formato de fecha YYYY-MM-DD
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCompromiso)) {
+        echo json_encode(array(
+            'result' => false,
+            'contenido' => array(),
+            'msjError' => 'Formato de fecha inválido'
+        ));
+        exit;
+    }
+    
+    // 3. Obtener estatus actual de BD para validar transición
+    $sqlActual = "SELECT idstatus FROM prospect_movimientos WHERE u_movimiento = " . $uMovimiento;
+    $resActual = ProspectosEjecutarConsulta($sqlActual, $db, 'GuardarCambioEstatus actual');
+    if ($resActual === false) {
+        echo json_encode(array(
+            'result' => false,
+            'contenido' => array(),
+            'msjError' => 'Error al consultar estado actual'
+        ));
+        exit;
+    }
+    
+    $rowActual = DB_fetch_array($resActual);
+    if (!$rowActual) {
+        echo json_encode(array(
+            'result' => false,
+            'contenido' => array(),
+            'msjError' => 'Prospecto no encontrado'
+        ));
+        exit;
+    }
+    
+    $statusActual = intval($rowActual['idstatus']);
+    
+    // 4. Validar transición permitida (matriz server-side)
+    $transicionesPermitidas = array(
+        1 => array(2, 5, 7, 8),
+        2 => array(1, 3, 5, 7, 8),
+        3 => array(1, 2, 4, 5, 7, 8),
+        4 => array(1, 2, 3, 5, 6, 7, 8),
+        7 => array(1, 2, 3, 4, 5, 8)
+    );
+    
+    if (!isset($transicionesPermitidas[$statusActual])) {
+        echo json_encode(array(
+            'result' => false,
+            'contenido' => array(),
+            'msjError' => 'Esta etapa es terminal y no se puede modificar'
+        ));
+        exit;
+    }
+    
+    if (!in_array($nuevoStatus, $transicionesPermitidas[$statusActual])) {
+        error_log('[PWA CambiarEtapa INVALID] userid=' . $_SESSION['UserID'] . ' u_movimiento=' . $uMovimiento . ' intentó ' . $statusActual . ' → ' . $nuevoStatus . ' (no permitida)');
+        echo json_encode(array(
+            'result' => false,
+            'contenido' => array(),
+            'msjError' => 'Transición no permitida: ' . $statusActual . ' → ' . $nuevoStatus
+        ));
+        exit;
+    }
+    
+    // 5. Log antes del passthrough
+    error_log('[PWA CambiarEtapa] userid=' . $_SESSION['UserID'] . ' u_movimiento=' . $uMovimiento . ' de=' . $statusActual . ' a=' . $nuevoStatus . ' fecha=' . $fechaCompromiso);
+    
+    // 6. Passthrough al ERP (mismo patrón de siempre)
     $_POST = array_merge($_POST, $input);
     include($PathPrefix . 'modelo/ProspectV2Modelo.php');
     exit;
