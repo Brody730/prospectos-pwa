@@ -106,16 +106,26 @@ if ($option === 'GuardarAdjuntos') {
         exit;
     }
 
-    // Rutas candidatas en orden de preferencia
-    $candidatos = [
-        '/data2/html/erpdistribucion/images/prospectos',
-        '/var/www/html/erpdistribucion/images/prospectos',
-    ];
+    // 1. Intentar chmod en prospectos (existe pero no es escribible por apache)
+    $erpProspectos = '/data2/html/erpdistribucion/images/prospectos';
+    if (is_dir($erpProspectos) && !is_writable($erpProspectos)) {
+        @chmod($erpProspectos, 0775);
+    }
+
+    // 2. Fallback garantizado: carpeta uploads dentro de la propia PWA
+    $pwaUploads = dirname(__DIR__) . '/uploads/prospectos';
+    if (!is_dir($pwaUploads)) {
+        @mkdir($pwaUploads, 0775, true);
+    }
+
+    // 3. Primer directorio escribible gana
     $dirImg = null;
+    $candidatos = array(
+        $erpProspectos,
+        '/var/www/html/erpdistribucion/images/prospectos',
+        $pwaUploads
+    );
     foreach ($candidatos as $c) {
-        if (!is_dir($c)) {
-            @mkdir($c, 0775, true);
-        }
         if (is_dir($c) && is_writable($c)) {
             $dirImg = $c;
             break;
@@ -123,12 +133,12 @@ if ($option === 'GuardarAdjuntos') {
     }
 
     if ($dirImg === null) {
-        error_log('[PWA GuardarAdjuntos] No se encontró directorio escribible. Candidatos: ' . implode(', ', $candidatos));
-        echo json_encode(['result' => false, 'msjError' => 'No hay directorio de imágenes disponible']);
+        error_log('[PWA GuardarAdjuntos] Ningún dir escribible: ' . implode(', ', $candidatos));
+        echo json_encode(array('result' => false, 'msjError' => 'No hay directorio de imagenes disponible'));
         exit;
     }
 
-    error_log('[PWA GuardarAdjuntos] Usando directorio: ' . $dirImg);
+    error_log('[PWA GuardarAdjuntos] Usando: ' . $dirImg);
 
     $imagenesJson = isset($input['imagenesconvertidas']) ? $input['imagenesconvertidas'] : '[]';
     $imagenes = json_decode($imagenesJson);
