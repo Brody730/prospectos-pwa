@@ -15,11 +15,6 @@ include($PathPrefix . 'config.php');
 include($PathPrefix . 'includes/ConnectDB.inc');
 include($PathPrefix . 'includes/SQL_CommonFunctions.inc');
 
-// SecurityFunctions.inc ejecuta SQL en tiempo de include que puede
-// generar HTML de error. Lo aislamos en un buffer propio que se descarta.
-ob_start();
-include($PathPrefix . 'includes/SecurityFunctions.inc');
-ob_end_clean();
 
 // Limpiar cualquier salida residual de los demás includes (config, ConnectDB, etc.).
 while (ob_get_level() > 0) {
