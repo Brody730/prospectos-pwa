@@ -20,7 +20,13 @@
       backdrop.innerHTML = [
         '<div class="modal-sheet wizard-sheet">',
           '<div class="modal-handle"></div>',
-          '<div class="modal-title">Wizard Prospecto A-D</div>',
+          '<div class="wizard-header">',
+            '<div class="wizard-title-wrap">',
+              '<div class="modal-title" style="margin-bottom:4px">Prospecto A-D</div>',
+              '<div class="wizard-subtitle">Flujo móvil integrado al ERP</div>',
+            '</div>',
+            '<button class="wizard-close" type="button" onclick="PWA.WizardProspecto.cerrar()">✕</button>',
+          '</div>',
           '<div id="wizardProspectoContent"><div class="spinner"></div></div>',
         '</div>'
       ].join('');
@@ -101,10 +107,10 @@
       var d = this.data;
       var html = '';
       html += '<div class="wizard-tabs">';
-      html += '<button class="wizard-tab active" data-tab="A" onclick="PWA.WizardProspecto.tab(\'A\')">A Prospecto</button>';
-      html += '<button class="wizard-tab" data-tab="B" onclick="PWA.WizardProspecto.tab(\'B\')">B Visita</button>';
-      html += '<button class="wizard-tab" data-tab="C" onclick="PWA.WizardProspecto.tab(\'C\')">C Cotización</button>';
-      html += '<button class="wizard-tab" data-tab="D" onclick="PWA.WizardProspecto.tab(\'D\')">D Cierre</button>';
+      html += '<button class="wizard-tab active" data-tab="A" onclick="PWA.WizardProspecto.tab(\'A\')"><span class="wizard-step">A</span><span>Prospecto</span></button>';
+      html += '<button class="wizard-tab" data-tab="B" onclick="PWA.WizardProspecto.tab(\'B\')"><span class="wizard-step">B</span><span>Visita</span></button>';
+      html += '<button class="wizard-tab" data-tab="C" onclick="PWA.WizardProspecto.tab(\'C\')"><span class="wizard-step">C</span><span>Cotización</span></button>';
+      html += '<button class="wizard-tab" data-tab="D" onclick="PWA.WizardProspecto.tab(\'D\')"><span class="wizard-step">D</span><span>Cierre</span></button>';
       html += '</div>';
 
       html += '<div id="wizardTabA" class="wizard-pane active">' + this.renderEtapaA(d) + '</div>';
@@ -112,7 +118,7 @@
       html += '<div id="wizardTabC" class="wizard-pane">' + this.renderEtapaC(d) + '</div>';
       html += '<div id="wizardTabD" class="wizard-pane">' + this.renderEtapaD(d) + '</div>';
 
-      html += '<div style="margin-top:12px"><button class="btn btn-ghost btn-full" onclick="PWA.WizardProspecto.cerrar()">Cerrar</button></div>';
+      html += '<div class="wizard-footer"><button class="btn btn-ghost btn-full" onclick="PWA.WizardProspecto.cerrar()">Cerrar</button></div>';
 
       cont.innerHTML = html;
       this.renderTiempoVidaSeleccion();
@@ -147,7 +153,7 @@
         '<div class="form-group"><label class="form-label">Ciudad</label><input id="wa_ciudad" class="form-input" value="' + this.e(ciudad) + '"></div>',
         '<div class="form-group"><label class="form-label">Estado</label><input id="wa_estado" class="form-input" value="' + this.e(estado) + '"></div>',
         '<div class="form-group"><label class="form-label">Código postal</label><input id="wa_cp" class="form-input" value="' + this.e(cp) + '"></div>',
-        '<div class="card2">',
+        '<div class="card2 wizard-card-soft">',
           '<div style="font-size:12px;color:var(--pwa-muted);margin-bottom:8px">Imágenes Etapa A</div>',
           '<input id="wa_file_gallery" type="file" accept="image/*" multiple style="display:none" onchange="PWA.WizardProspecto.filesSeleccionados(event)">',
           '<input id="wa_file_camera" type="file" accept="image/*" capture="environment" style="display:none" onchange="PWA.WizardProspecto.filesSeleccionados(event)">',
@@ -172,14 +178,14 @@
         '<div class="form-group"><label class="form-label">Tiempo dedicado cliente</label><input id="wb_tded" class="form-input" value="' + this.e(d.tiempo_dedicado || '') + '"></div>',
         '<div class="form-group"><label class="form-label">Descripción/Necesidades</label><textarea id="wb_desc" class="form-textarea">' + this.e(d.descripcion || '') + '</textarea></div>',
         '<div class="form-group"><label class="form-label">Comentarios</label><textarea id="wb_comments" class="form-textarea">' + this.e(d.cometarios || '') + '</textarea></div>',
-        '<div class="card2">',
+        '<div class="card2 wizard-card-soft">',
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">',
             '<div style="font-size:12px;color:var(--pwa-muted)">Productos Etapa B</div>',
             '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.buscarProductos(\'B\')">+ Producto</button>',
           '</div>',
           '<div id="wb_productos"></div>',
         '</div>',
-        '<div class="card2" style="margin-top:10px">',
+        '<div class="card2 wizard-card-soft" style="margin-top:10px">',
           '<div style="font-size:12px;color:var(--pwa-muted);margin-bottom:8px">Tiempo de vida</div>',
           '<div id="wb_tiempovida"></div>',
           '<div style="margin-top:8px;font-weight:700">Puntaje: <span id="wb_puntos">0</span></div>',
@@ -197,7 +203,7 @@
       return [
         '<div class="form-group"><label class="form-label">OrderNo (si existe)</label><input id="wc_orderno" class="form-input" value="' + this.e(orderno) + '"></div>',
         '<div class="form-group"><label class="form-label">Unidad negocio</label><input id="wc_tagref" class="form-input" value="' + this.e(tagref) + '" placeholder="Ej: 1"></div>',
-        '<div class="card2">',
+        '<div class="card2 wizard-card-soft">',
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">',
             '<div style="font-size:12px;color:var(--pwa-muted)">Productos Etapa C</div>',
             '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.buscarProductos(\'C\')">+ Producto</button>',
@@ -624,7 +630,12 @@
     },
 
     e: function(v) {
-      return String(v || '').replace(/&/g, '&amp;').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"');
+      return String(v || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
+        .replace(/"/g, '"')
+        .replace(/'/g, '&#39;');
     }
   };
 
