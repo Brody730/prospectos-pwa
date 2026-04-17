@@ -934,6 +934,38 @@ html, body {
 .wizard-sheet {
   max-width: 960px;
   margin: 0 auto;
+  border-radius: 18px 18px 0 0;
+  overflow: hidden;
+}
+
+.wizard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 2px 12px 2px;
+  border-bottom: 1px solid var(--pwa-border);
+  margin-bottom: 12px;
+}
+
+.wizard-title-wrap {
+  min-width: 0;
+}
+
+.wizard-subtitle {
+  color: var(--pwa-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.wizard-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--pwa-border);
+  background: var(--pwa-card2);
+  color: var(--pwa-text);
+  cursor: pointer;
 }
 
 .wizard-tabs {
@@ -947,11 +979,27 @@ html, body {
   border: 1px solid var(--pwa-border);
   background: var(--pwa-card2);
   color: var(--pwa-muted);
-  border-radius: 10px;
-  min-height: 40px;
+  border-radius: 12px;
+  min-height: 48px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.wizard-step {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
 }
 
 .wizard-tab.active {
@@ -966,6 +1014,23 @@ html, body {
 
 .wizard-pane.active {
   display: block;
+  animation: wizardFadeIn .2s ease;
+}
+
+@keyframes wizardFadeIn {
+  from { opacity: .4; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.wizard-card-soft {
+  border: 1px solid var(--pwa-border);
+  background: rgba(255,255,255,.02);
+}
+
+.wizard-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pwa-border);
 }
 
 .w-table {
@@ -1008,8 +1073,25 @@ html, body {
 }
 
 @media (max-width: 820px) {
+  .wizard-sheet {
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+  }
+
   .wizard-tabs {
     grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .wizard-tab {
+    min-height: 44px;
+    font-size: 11px;
+  }
+
+  .wizard-step {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
   }
 
   .tv-grid {
