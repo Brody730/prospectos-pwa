@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(curl -s -X POST http://localhost/prospectos/api/agenda.php -H 'Content-Type: application/json' -d '{\"opcion\":\"TraerHistorial\",\"u_movimiento\":31136}')"
     ]
   }
 }
