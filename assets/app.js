@@ -939,7 +939,7 @@ PWA.Panel = {
    ============================================================ */
 PWA.CambiarEtapa = {
   // ⚠️ FEATURE FLAG — cambiar a null para activar para todos
-  soloParaProspecto: 31136,  // prospecto de prueba
+  soloParaProspecto: null,  // prospecto de prueba
   
   // Matriz de transiciones permitidas
   // idstatus: 1=A(Nuevo) 2=B(Levant) 3=C(CotSol) 4=D(CotEnt) 5=E(Descart) 6=V(Venta) 7=S(Seguim) 8=X(Cancel)
