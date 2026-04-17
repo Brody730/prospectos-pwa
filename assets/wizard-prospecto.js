@@ -117,12 +117,13 @@
       html += '<button class="wizard-tab" data-tab="D" onclick="PWA.WizardProspecto.tab(\'D\')"><span class="wizard-step">D</span><span>Cierre</span></button>';
       html += '</div>';
 
+      html += '<div class="wizard-scroll-body">';
       html += '<div id="wizardTabA" class="wizard-pane active">' + this.renderEtapaA(d) + '</div>';
       html += '<div id="wizardTabB" class="wizard-pane">' + this.renderEtapaB(d) + '</div>';
       html += '<div id="wizardTabC" class="wizard-pane">' + this.renderEtapaC(d) + '</div>';
       html += '<div id="wizardTabD" class="wizard-pane">' + this.renderEtapaD(d) + '</div>';
-
       html += '<div class="wizard-footer"><button class="btn btn-ghost btn-full" onclick="PWA.WizardProspecto.cerrar()">Cerrar</button></div>';
+      html += '</div>';
 
       cont.innerHTML = html;
       this.renderTiempoVidaSeleccion();

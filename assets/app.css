@@ -938,7 +938,36 @@ html, body {
   max-width: 960px;
   margin: 0 auto;
   border-radius: 18px 18px 0 0;
+  /* Flex column: handle + header fijos arriba, contenido scrollea abajo */
+  display: flex;
+  flex-direction: column;
+  /* Sin overflow:hidden aquí — ese era el bug que bloqueaba el scroll */
+}
+
+/* Handle y header no encogen: ocupan altura fija */
+.wizard-sheet .modal-handle { flex-shrink: 0; }
+.wizard-header { flex-shrink: 0; }
+
+/* Área de contenido: toma el espacio restante y permite scroll interno */
+#wizardProspectoContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* necesario para que flex+overflow funcione en iOS/Safari */
   overflow: hidden;
+}
+
+/* Tabs fijos — no scrollean */
+.wizard-tabs { flex-shrink: 0; }
+
+/* Cuerpo scrolleable — solo este elemento hace scroll */
+.wizard-scroll-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  min-height: 0;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
 .wizard-header {
@@ -1112,49 +1141,60 @@ html, body {
 html.body-modal-open,
 html.body-modal-open body {
   overflow: hidden;
-  touch-action: none;
+  /* touch-action intencional: NO poner none aquí — mataría el scroll dentro del modal */
 }
 
-/* ── Landscape móvil (altura < 500px): modal centrado, tabs en fila ── */
-@media (orientation: landscape) and (max-height: 500px) {
+/* ── Landscape: modal centrado y altura compacta ── */
+@media (orientation: landscape) {
+  /* El modal deja de ser bottom-sheet y se centra verticalmente */
   .modal-backdrop {
     align-items: center;
-    padding: 8px;
+    padding: 6px 12px;
   }
 
+  /* Sheet usa casi toda la altura disponible */
   .modal-sheet {
     border-radius: 14px;
     max-height: 96vh;
-    padding: 12px 14px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
 
-  .modal-handle {
-    margin-bottom: 10px;
-  }
-
+  /* Wizard usa toda la altura en landscape */
   .wizard-sheet {
     border-radius: 14px;
-    max-width: 680px;
+    max-width: 700px;
     width: 100%;
+    max-height: 96vh; /* ocupa casi toda la pantalla vertical */
   }
 
-  .wizard-header {
-    padding: 4px 2px 8px 2px;
-    margin-bottom: 8px;
-  }
-
+  /* Tabs siempre en fila única (los 4 de una vez) */
   .wizard-tabs {
     grid-template-columns: repeat(4, 1fr);
     gap: 5px;
     margin-bottom: 8px;
   }
+}
+
+/* ── Landscape móvil (altura < 480px): compactar espaciado ── */
+@media (orientation: landscape) and (max-height: 480px) {
+  .modal-sheet {
+    padding: 10px 14px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .modal-handle {
+    margin-bottom: 8px;
+  }
+
+  .wizard-header {
+    padding: 2px 2px 6px 2px;
+    margin-bottom: 6px;
+  }
 
   .wizard-tab {
-    min-height: 36px;
+    min-height: 34px;
     font-size: 10px;
-    gap: 5px;
-    padding: 0 5px;
+    gap: 4px;
+    padding: 0 4px;
   }
 
   .wizard-step {
@@ -1164,39 +1204,27 @@ html.body-modal-open body {
   }
 
   .form-group {
-    margin-bottom: 9px;
+    margin-bottom: 8px;
   }
 
   .form-input,
   .form-select,
   .form-textarea {
-    padding: 8px 10px;
+    padding: 7px 10px;
     font-size: 15px;
   }
 
   .form-textarea {
-    min-height: 52px;
+    min-height: 48px;
   }
 
   .wizard-footer {
-    margin-top: 8px;
-    padding-top: 7px;
+    margin-top: 6px;
+    padding-top: 6px;
   }
 
   .tv-grid {
     font-size: 10px;
-    gap: 4px;
-  }
-}
-
-/* ── Landscape tablet (altura >= 500px): tabs en fila única ── */
-@media (orientation: landscape) and (min-height: 500px) and (max-width: 1024px) {
-  .wizard-tabs {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-  }
-
-  .modal-sheet {
-    max-height: 88vh;
+    gap: 3px;
   }
 }
