@@ -330,7 +330,7 @@ $sessionData = json_encode(array(
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="session-data" content='<?php echo htmlspecialchars($sessionData, ENT_QUOTES, 'UTF-8'); ?>'>
   <meta name="theme-color" content="#0f1117">
   <meta name="apple-mobile-web-app-capable" content="yes">

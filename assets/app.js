@@ -250,7 +250,7 @@ function renderDetalle(p) {
           '<h2 style="margin:0 0 8px;font-size:22px">' + nombre + '</h2>',
           '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">',
           '<div class="etapa-badge" style="background:' + badgeColor + '">' + etapaNombre + ' · ' + (p.nombrealterno || '—') + '</div>',
-          '<button class="btn btn-ghost" style="padding:6px 12px;min-height:34px;font-size:12px" onclick="PWA.CambiarEtapa.abrir(\'' + p.u_movimiento + '\',\'' + p.idstatus + '\',\'' + nombre.replace(/\'/g, "\\'") + '\')">⇆ Cambiar</button>',
+          '<span class="btn btn-ghost" style="padding:6px 12px;min-height:34px;font-size:12px;opacity:.85;pointer-events:none">Etapa: ' + (p.etapa || 'Sin etapa') + '</span>',
           '</div>',
         '</div>',
       '</div>',
