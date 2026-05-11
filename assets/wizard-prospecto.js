@@ -275,7 +275,7 @@
         '<div style="display:flex;gap:8px;flex-wrap:wrap">',
           '<button class="btn btn-primary" type="button" onclick="PWA.WizardProspecto.guardarEtapaC()">Guardar/Actualizar Etapa C</button>',
           '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.solicitarCotizacion()">Solicitar autorización</button>',
-          '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.autorizarCotizacion()">Autorizar</button>',
+          (this.puedeAutorizarOV() ? '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.autorizarCotizacion()">Autorizar</button>' : ''),
           '<button class="btn btn-ghost" type="button" onclick="PWA.WizardProspecto.verDocs()">Ver docs</button>',
         '</div>'
       ].join('');
@@ -602,7 +602,7 @@
         }
         var html = '';
         lista.forEach(function(p) {
-          var pJson = JSON.stringify(p).replace(/'/g, '&#39;');
+          var pJson = JSON.stringify(p).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
           html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--pwa-border)">';
           html += '<div style="flex:1;min-width:0">';
           html += '<div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + self.e(p.description) + '</div>';
@@ -767,14 +767,67 @@
     },
 
     verDocs: function() {
+      var self = this;
       this.api({ option: 'ObtenerDocAdmin', idOportunidad: this.uMovimiento }, function(err, data) {
         if (err || !data || !data.result) {
           PWA.toast('No se pudieron cargar documentos', 'warn');
           return;
         }
         var c = data.contenido && data.contenido[0] ? data.contenido[0] : { cotizaciones: [], timbres: [] };
-        PWA.toast('Docs: ' + (c.cotizaciones || []).length + ' cotización(es), ' + (c.timbres || []).length + ' timbre(s)', 'ok');
+        var cots = c.cotizaciones || [];
+        if (!cots.length) {
+          PWA.toast('Sin cotizaciones disponibles', 'warn');
+          return;
+        }
+        if (cots.length === 1) {
+          window.open('/erpdistribucion/CotizacionProspecto.php?OrderNo=' + encodeURIComponent(cots[0].orderno), '_blank');
+          return;
+        }
+        self.mostrarListaDocs(cots);
       });
+    },
+
+    mostrarListaDocs: function(cots) {
+      var self = this;
+      var viejo = document.getElementById('wDocsBackdrop');
+      if (viejo) viejo.parentNode.removeChild(viejo);
+      var bd = document.createElement('div');
+      bd.id = 'wDocsBackdrop';
+      bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;display:flex;align-items:flex-end';
+      var rows = '';
+      cots.forEach(function(ct) {
+        var url = '/erpdistribucion/CotizacionProspecto.php?OrderNo=' + encodeURIComponent(ct.orderno);
+        rows += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--pwa-border)">';
+        rows +=   '<div style="flex:1;min-width:0">';
+        rows +=     '<div style="font-size:13px;font-weight:600">Cotizacion ' + self.e(ct.orderno) + '</div>';
+        rows +=     '<div style="font-size:11px;color:var(--pwa-muted);margin-top:2px">' + self.e(ct.orddate || '') + ' &middot; ' + self.e(ct.user || '') + ' &middot; Total ' + self.e(ct.total || '0') + '</div>';
+        rows +=   '</div>';
+        rows +=   '<a class="btn btn-primary" target="_blank" rel="noopener" href="' + url + '" style="flex-shrink:0;padding:6px 12px;font-size:12px;text-decoration:none">Abrir PDF</a>';
+        rows += '</div>';
+      });
+      bd.innerHTML = [
+        '<div style="width:100%;height:70vh;background:var(--pwa-card);border-radius:18px 18px 0 0;display:flex;flex-direction:column;overflow:hidden">',
+          '<div style="padding:16px 16px 0">',
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">',
+              '<div style="font-weight:700;font-size:15px;flex:1">Cotizaciones disponibles</div>',
+              '<button type="button" id="wDocsClose" style="background:var(--pwa-card2);border:1px solid var(--pwa-border);border-radius:8px;color:var(--pwa-text);width:32px;height:32px;font-size:16px;cursor:pointer;flex-shrink:0">✕</button>',
+            '</div>',
+          '</div>',
+          '<div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 16px">' + rows + '</div>',
+        '</div>'
+      ].join('');
+      bd.addEventListener('click', function(e) { if (e.target === bd) bd.remove(); });
+      document.body.appendChild(bd);
+      document.getElementById('wDocsClose').addEventListener('click', function() { bd.remove(); });
+    },
+
+    puedeAutorizarOV: function() {
+      try {
+        var m = document.querySelector('meta[name="session-data"]');
+        if (!m) return false;
+        var s = JSON.parse(m.getAttribute('content') || '{}');
+        return s.permisoAutorizarOV === true;
+      } catch (ex) { return false; }
     },
 
     e: function(v) {

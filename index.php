@@ -314,12 +314,31 @@ $permisoVendedores  = ProspectosHavePermission($userid, 859, $db);  // Asignar v
 $permisoPoligonos   = ProspectosHavePermission($userid, 2251, $db); // Editar polígonos mapa
 $permisoAutorizarOV = ProspectosHavePermission($userid, 2090, $db); // Autorizar OV
 
+// Vendedor del usuario (para auto-seleccion al crear prospecto).
+// Primero intenta con SalesmanLogin de la sesion; si viene vacio, lo deriva
+// desde la tabla salesman buscando por usersales = UserID.
+$salesmanUsuario = isset($_SESSION['SalesmanLogin']) ? trim((string)$_SESSION['SalesmanLogin']) : '';
+if ($salesmanUsuario === '') {
+    $useridEsc = addslashes($userid);
+    $sqlDeriv  = "SELECT salesmancode
+                  FROM salesman
+                  WHERE usersales = '" . $useridEsc . "'
+                    AND status = 'Active'
+                  ORDER BY salesmancode
+                  LIMIT 1";
+    $resDeriv = DB_query($sqlDeriv, $db);
+    if ($resDeriv && ($rowDeriv = DB_fetch_array($resDeriv))) {
+        $salesmanUsuario = $rowDeriv['salesmancode'];
+    }
+}
+
 $sessionData = json_encode(array(
     'userid'         => $userid,
     'username'       => isset($_SESSION['UsersRealName']) ? $_SESSION['UsersRealName'] : $userid,
     'databaseName'   => $databaseName,
     'functionid'     => $funcion,
     'showAllSalesman'=> isset($_SESSION['ShowAllSalesman']) ? (int)$_SESSION['ShowAllSalesman'] : 0,
+    'salesman'       => $salesmanUsuario,
     'permisoVerTodos'=> (bool)$permisoVerTodos,
     'permisoVendedores'  => (bool)$permisoVendedores,
     'permisoPoligonos'   => (bool)$permisoPoligonos,

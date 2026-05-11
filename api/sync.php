@@ -179,6 +179,52 @@ foreach ($queue as $item) {
             break;
 
         case 'nuevo_prospecto':
+            // Si el payload viene de la PWA (con option=insertarEtapaA o con
+            // cmbVendedor + nombre), replicamos EXACTAMENTE el passthrough
+            // de api/prospectos.php — asi un prospecto creado offline queda
+            // igual que uno creado online (debtorsmaster, custcontacts, tags,
+            // fuente, coordenadas, etc.).
+            $esPayloadPWA = (isset($payload['option']) && $payload['option'] === 'insertarEtapaA')
+                         || (isset($payload['nombre']) && isset($payload['cmbVendedor']));
+
+            if ($esPayloadPWA) {
+                // Forzar option y poblar $_POST igual que hace prospectos.php
+                $payload['option'] = 'insertarEtapaA';
+                $_POST = array_merge($_POST, $payload);
+
+                error_log('[PWA SYNC nuevo_prospecto IN] userid=' . $userid
+                    . ' post_keys=' . implode(',', array_keys($_POST)));
+
+                ob_start();
+                include($PathPrefix . 'modelo/ProspectV2Modelo.php');
+                $modeloOut = ob_get_clean();
+
+                $resultVar   = isset($result)   ? $result   : null;
+                $msjErrorVar = isset($msjError) ? $msjError : '';
+
+                // Fix idstatus=0 -> 1 (igual que online)
+                if ($resultVar && is_numeric($resultVar)) {
+                    $uMovNuevo = intval($resultVar);
+                    $sqlFix = "UPDATE prospect_movimientos
+                               SET idstatus = 1
+                               WHERE u_movimiento = " . $uMovNuevo . "
+                                 AND idstatus = 0";
+                    DB_query($sqlFix, $db);
+                    error_log('[PWA SYNC nuevo_prospecto OK] u_movimiento=' . $uMovNuevo);
+                } else {
+                    error_log('[PWA SYNC nuevo_prospecto FAIL] result=' . var_export($resultVar, true)
+                        . ' msjError=' . $msjErrorVar);
+                    $ok = false;
+                    $errors[] = array('action' => 'nuevo_prospecto',
+                                      'error'  => $msjErrorVar ?: 'Error al crear prospecto');
+                }
+
+                // Limpiar $_POST para que no contamine la siguiente iteracion
+                $_POST = array();
+                break;
+            }
+
+            // Fallback: payload minimo legacy (DebtorName / PhoneNo / email)
             $nombre   = isset($payload['DebtorName']) ? addslashes($payload['DebtorName']) : '';
             $telefono = isset($payload['PhoneNo'])    ? addslashes($payload['PhoneNo'])    : '';
             $email    = isset($payload['email'])      ? addslashes($payload['email'])      : '';

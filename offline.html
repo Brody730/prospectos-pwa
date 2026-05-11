@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1117">
+  <title>Prospectos — Sin conexion</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1117;color:#f8fafc;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:420px;text-align:center}
+    .icon{width:80px;height:80px;border-radius:20px;background:rgba(37,99,235,.15);display:flex;align-items:center;justify-content:center;margin:0 auto 24px}
+    .icon svg{width:40px;height:40px;stroke:#60a5fa;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+    h1{font-size:22px;margin-bottom:8px}
+    p{color:#94a3b8;line-height:1.5;margin-bottom:20px;font-size:15px}
+    .btn{display:inline-block;padding:14px 28px;border-radius:12px;background:#2563eb;color:#fff;font-size:15px;font-weight:600;text-decoration:none;border:none;cursor:pointer}
+    .btn:active{background:#1d4ed8}
+    .hint{margin-top:24px;font-size:12px;color:#64748b;line-height:1.4}
+    .pending-info{margin-top:20px;padding:14px;border-radius:12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);font-size:13px;color:#fbbf24;display:none}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 24 24">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <line x1="12" y1="20" x2="12.01" y2="20"/>
+      </svg>
+    </div>
+    <h1>Sin conexion</h1>
+    <p>No hay internet disponible y la aplicacion no se cargo completamente en cache.</p>
+    <p>Cuando recuperes la senal, la app se sincronizara automaticamente.</p>
+    <button class="btn" onclick="location.reload()">Reintentar</button>
+    <div id="pendingInfo" class="pending-info"></div>
+    <div class="hint">
+      Si el problema persiste, abre la app al menos una vez con internet
+      para que se guarde en cache y funcione sin conexion.
+    </div>
+  </div>
+
+  <script>
+    // Mostrar pendientes si hay datos en IndexedDB
+    (function() {
+      try {
+        var req = indexedDB.open('prospectos_offline');
+        req.onsuccess = function(e) {
+          var db = e.target.result;
+          if (!db.objectStoreNames.contains('sync_queue')) return;
+          var tx = db.transaction(['sync_queue'], 'readonly');
+          var store = tx.objectStore('sync_queue');
+          var idx = store.index('status');
+          var countReq = idx.count('pending');
+          countReq.onsuccess = function(ev) {
+            var n = ev.target.result || 0;
+            if (n > 0) {
+              var info = document.getElementById('pendingInfo');
+              if (info) {
+                info.textContent = 'Tienes ' + n + ' elemento(s) pendiente(s) de sincronizar. Se enviaran automaticamente al reconectar.';
+                info.style.display = 'block';
+              }
+            }
+          };
+        };
+      } catch(ex) {}
+    })();
+
+    // Auto-reload cuando regrese la conexion
+    window.addEventListener('online', function() {
+      location.reload();
+    });
+  </script>
+</body>
+</html>

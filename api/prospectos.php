@@ -239,6 +239,136 @@ if ($option === 'GuardarAdjuntos') {
     exit;
 }
 
+// ============================================================
+// PWA: combos para alta de prospecto (vendedores + fuentes)
+// ============================================================
+if ($option == 'TraerVendedoresPWA') {
+    // Replica la logica del ERP (erp-prod/paneldecontrolprospectos.php).
+    // Si el usuario tiene permiso de ver todos -> todos los Active.
+    // Si no -> filtra por unidades de negocio asignadas via sec_unegsxuser.
+    $userid     = isset($_SESSION['UserID']) ? $_SESSION['UserID'] : '';
+    $verTodos   = ProspectosTienePermisoVerTodos();
+    $useridEsc  = DB_escape_string($userid, $db);
+
+    if ($verTodos) {
+        $sqlV = "SELECT salesmancode, salesmanname
+                 FROM salesman
+                 WHERE status='Active'
+                 ORDER BY salesmanname";
+    } else {
+        $sqlV = "SELECT DISTINCT sm.salesmancode, sm.salesmanname
+                 FROM salesman sm
+                 LEFT JOIN areas ar ON sm.area = ar.areacode
+                 JOIN tags tg ON ar.areacode = tg.areacode
+                 JOIN sec_unegsxuser u ON u.tagref = tg.tagref
+                 WHERE u.userid = '" . $useridEsc . "'
+                   AND sm.status = 'Active'
+                 ORDER BY sm.salesmanname";
+    }
+
+    $resV = ProspectosEjecutarConsulta($sqlV, $db, 'TraerVendedoresPWA');
+    $vendedores = array();
+    if ($resV) {
+        while ($row = DB_fetch_array($resV)) {
+            $vendedores[] = array(
+                'salesmancode' => $row['salesmancode'],
+                'salesmanname' => $row['salesmanname']
+            );
+        }
+    }
+
+    // Fallback: si la query filtrada no trajo nada, intenta con el propio usersales.
+    // Esto cubre el caso en que el usuario tiene un salesman asignado pero no
+    // esta mapeado en sec_unegsxuser todavia.
+    if (!$verTodos && count($vendedores) === 0) {
+        $sqlFb = "SELECT salesmancode, salesmanname
+                  FROM salesman
+                  WHERE usersales = '" . $useridEsc . "'
+                    AND status = 'Active'
+                  ORDER BY salesmanname";
+        $resFb = ProspectosEjecutarConsulta($sqlFb, $db, 'TraerVendedoresPWA_fb');
+        if ($resFb) {
+            while ($row = DB_fetch_array($resFb)) {
+                $vendedores[] = array(
+                    'salesmancode' => $row['salesmancode'],
+                    'salesmanname' => $row['salesmanname']
+                );
+            }
+        }
+    }
+
+    echo json_encode(array('result' => true, 'contenido' => $vendedores, 'msjError' => ''));
+    exit;
+}
+
+// ============================================================
+// PWA: endpoint de diagnostico para vendedores (TEMPORAL)
+// Uso: POST { option: 'DebugVendedoresPWA' }
+// ============================================================
+if ($option == 'DebugVendedoresPWA') {
+    $userid     = isset($_SESSION['UserID']) ? $_SESSION['UserID'] : '';
+    $showAllS   = isset($_SESSION['ShowAllSalesman']) ? $_SESSION['ShowAllSalesman'] : null;
+    $tokens     = isset($_SESSION['AllowedPageSecurityTokens']) ? $_SESSION['AllowedPageSecurityTokens'] : array();
+    $verTodos   = ProspectosTienePermisoVerTodos();
+    $useridEsc  = DB_escape_string($userid, $db);
+
+    $debug = array(
+        'UserID'                  => $userid,
+        'ShowAllSalesman_session' => $showAllS,
+        'tiene_token_2055'        => in_array(2055, (array)$tokens),
+        'verTodos_resuelto'       => $verTodos,
+        'queries'                 => array()
+    );
+
+    // Q1: todos los Active
+    $q1 = "SELECT COUNT(*) AS n FROM salesman WHERE status='Active'";
+    $r1 = DB_query($q1, $db);
+    $debug['queries']['todos_active_count'] = (int)(DB_fetch_array($r1)['n']);
+
+    // Q2: filtrado por sec_unegsxuser
+    $q2 = "SELECT COUNT(DISTINCT sm.salesmancode) AS n
+           FROM salesman sm
+           LEFT JOIN areas ar ON sm.area = ar.areacode
+           JOIN tags tg ON ar.areacode = tg.areacode
+           JOIN sec_unegsxuser u ON u.tagref = tg.tagref
+           WHERE u.userid = '" . $useridEsc . "' AND sm.status='Active'";
+    $r2 = DB_query($q2, $db);
+    $debug['queries']['filtrado_sec_unegsxuser_count'] = (int)(DB_fetch_array($r2)['n']);
+
+    // Q3: filtrado por usersales directo
+    $q3 = "SELECT COUNT(*) AS n FROM salesman WHERE usersales='" . $useridEsc . "' AND status='Active'";
+    $r3 = DB_query($q3, $db);
+    $debug['queries']['filtrado_usersales_count'] = (int)(DB_fetch_array($r3)['n']);
+
+    // Sample de los primeros 5 con cada estrategia
+    $sample = array();
+    $qs = "SELECT salesmancode, salesmanname FROM salesman WHERE status='Active' ORDER BY salesmanname LIMIT 5";
+    $rs = DB_query($qs, $db);
+    while ($row = DB_fetch_array($rs)) {
+        $sample[] = $row['salesmancode'] . ' - ' . $row['salesmanname'];
+    }
+    $debug['sample_todos'] = $sample;
+
+    echo json_encode(array('result' => true, 'contenido' => $debug, 'msjError' => ''));
+    exit;
+}
+
+if ($option == 'TraerFuentesContactoPWA') {
+    $sqlF = "SELECT CustLeadSourceId, CustLeadSourceNom
+             FROM Custleadsource
+             ORDER BY CustLeadSourceNom";
+    $resF = DB_query($sqlF, $db);
+    $fuentes = array();
+    while ($row = DB_fetch_array($resF)) {
+        $fuentes[] = array(
+            'CustLeadSourceId'  => $row['CustLeadSourceId'],
+            'CustLeadSourceNom' => $row['CustLeadSourceNom']
+        );
+    }
+    echo json_encode(array('result' => true, 'contenido' => $fuentes, 'msjError' => ''));
+    exit;
+}
+
 // Passthrough normal para actividades y otros
 if (in_array($option, array(
     'GuardarActividad',
@@ -259,7 +389,56 @@ if (in_array($option, array(
     'AutorizarCotizacion'
 ))) {
     $_POST = array_merge($_POST, $input);
+
+    // Logging diagnostico: capturar lo que el modelo emite y tambien lo que queda
+    // en las variables $result / $msjError del modelo legacy.
+    error_log('[PWA passthrough IN] option=' . $option
+        . ' userid=' . $_SESSION['UserID']
+        . ' post_keys=' . implode(',', array_keys($_POST)));
+
+    ob_start();
     include($PathPrefix . 'modelo/ProspectV2Modelo.php');
+    $modeloOut = ob_get_clean();
+
+    $resultVar     = isset($result) ? $result : null;
+    $msjErrorVar   = isset($msjError) ? $msjError : '';
+    $contenidoVar  = isset($contenido) ? $contenido : null;
+
+    // ----------------------------------------------------------------
+    // Fix idstatus al crear prospecto: el modelo legacy inserta con
+    // idstatus=0 (Base de Datos) y la PWA espera idstatus=1 (A-Nuevo).
+    // Tras un insertarEtapaA exitoso, subimos el idstatus a 1.
+    // ----------------------------------------------------------------
+    if ($option === 'insertarEtapaA' && $resultVar && is_numeric($resultVar)) {
+        $uMovNuevo = intval($resultVar);
+        $sqlFix = "UPDATE prospect_movimientos
+                   SET idstatus = 1
+                   WHERE u_movimiento = " . $uMovNuevo . "
+                     AND idstatus = 0";
+        $resFix = DB_query($sqlFix, $db);
+        error_log('[PWA insertarEtapaA] u_movimiento=' . $uMovNuevo
+            . ' idstatus -> 1 (desde 0). Result DB: ' . ($resFix ? 'ok' : 'fail'));
+    }
+
+    error_log('[PWA passthrough OUT] option=' . $option
+        . ' result=' . var_export($resultVar, true)
+        . ' msjError=' . $msjErrorVar
+        . ' echoed=' . substr(trim($modeloOut), 0, 500));
+
+    // Si el modelo ya emitio JSON valido, devolverlo tal cual
+    $trimOut = trim($modeloOut);
+    if ($trimOut !== '' && (substr($trimOut, 0, 1) === '{' || substr($trimOut, 0, 1) === '[')) {
+        echo $trimOut;
+        exit;
+    }
+
+    // Si no emitio nada (o emitio texto suelto), construir JSON desde las variables.
+    echo json_encode(array(
+        'result'    => $resultVar,
+        'contenido' => $contenidoVar,
+        'msjError'  => $msjErrorVar,
+        'debug_echoed' => $trimOut   // temporal, para diagnostico
+    ));
     exit;
 }
 

@@ -92,6 +92,101 @@ switch ($opcion) {
         echo json_encode(array('result' => true));
         break;
 
+    case 'ReverseGeocode':
+        // Convierte lat,lng en direccion usando Nominatim (OpenStreetMap).
+        // Gratis, sin API key. Rate limit: ~1 req/seg (suficiente para este uso).
+        $lat = isset($input['lat']) ? floatval($input['lat']) : 0;
+        $lng = isset($input['lng']) ? floatval($input['lng']) : 0;
+
+        if (!$lat || !$lng) {
+            echo json_encode(array('result' => false, 'msjError' => 'Coordenadas invalidas'));
+            break;
+        }
+
+        $url = 'https://nominatim.openstreetmap.org/reverse'
+             . '?format=jsonv2'
+             . '&lat=' . urlencode($lat)
+             . '&lon=' . urlencode($lng)
+             . '&accept-language=es'
+             . '&addressdetails=1'
+             . '&zoom=18';
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 10,
+            // Nominatim exige un User-Agent identificable
+            CURLOPT_USERAGENT      => 'ROGMAI-Prospectos-PWA/1.0 (contacto@portalito.com)',
+            CURLOPT_HTTPHEADER     => array('Accept: application/json'),
+            CURLOPT_SSL_VERIFYPEER => true,
+        ));
+        $resp   = curl_exec($ch);
+        $httpc  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($resp === false || $httpc >= 400) {
+            error_log('[PWA-geo] Nominatim fallo http=' . $httpc . ' err=' . $curErr);
+            echo json_encode(array(
+                'result'   => false,
+                'msjError' => 'No se pudo obtener la direccion (codigo ' . $httpc . ')'
+            ));
+            break;
+        }
+
+        $data = json_decode($resp, true);
+        if (!$data || !isset($data['address'])) {
+            echo json_encode(array(
+                'result'   => false,
+                'msjError' => 'Respuesta sin direccion'
+            ));
+            break;
+        }
+
+        $a = $data['address'];
+
+        // Construir "Calle y numero" combinando road + house_number
+        $road = '';
+        foreach (array('road', 'pedestrian', 'footway', 'residential', 'highway') as $k) {
+            if (!empty($a[$k])) { $road = $a[$k]; break; }
+        }
+        $num = isset($a['house_number']) ? $a['house_number'] : '';
+        $calle = trim($road . ($num !== '' ? ' ' . $num : ''));
+
+        // Colonia: probar varias llaves que usa Nominatim en MX
+        $colonia = '';
+        foreach (array('neighbourhood', 'suburb', 'quarter', 'hamlet', 'city_district') as $k) {
+            if (!empty($a[$k])) { $colonia = $a[$k]; break; }
+        }
+
+        // Ciudad
+        $ciudad = '';
+        foreach (array('city', 'town', 'village', 'municipality', 'county') as $k) {
+            if (!empty($a[$k])) { $ciudad = $a[$k]; break; }
+        }
+
+        // Estado
+        $estado = isset($a['state']) ? $a['state'] : '';
+        // CP
+        $cp = isset($a['postcode']) ? $a['postcode'] : '';
+        // Pais
+        $pais = isset($a['country']) ? $a['country'] : '';
+
+        echo json_encode(array(
+            'result'    => true,
+            'contenido' => array(
+                'calle'        => $calle,
+                'colonia'      => $colonia,
+                'ciudad'       => $ciudad,
+                'estado'       => $estado,
+                'cp'           => $cp,
+                'pais'         => $pais,
+                'display_name' => isset($data['display_name']) ? $data['display_name'] : ''
+            )
+        ));
+        break;
+
     default:
         echo json_encode(array('result' => false, 'msjError' => 'Opcion no reconocida'));
         break;

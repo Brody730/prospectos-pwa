@@ -1,5 +1,4 @@
 /* ============================================================
-   app.js — Lógica principal PWA Prospectos ROGMAI
    Vanilla JS, sin import/export, sin frameworks
    ============================================================ */
 
@@ -59,14 +58,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // Notificaciones locales
   PWA.Notificaciones.init();
 
-  // Escuchar mensajes del SW
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', function(e) {
-      if (e.data && e.data.type === 'SYNC_REQUEST') {
-        SyncDB.sincronizar();
-      }
-    });
-  }
+  // Si el permiso de notificacion ya esta 'granted' pero el dispositivo
+  // aun no esta suscrito en el backend, suscribirlo en silencio. Esto
+  // cubre PWAs recien instaladas sobre una sesion existente.
+  setTimeout(function() {
+    if (PWA.Push && 'Notification' in window && Notification.permission === 'granted') {
+      PWA.Push.suscribirse();
+    }
+  }, 2000);
 
   // Navegar a panel inicial
   PWA.navegarA('panel');
@@ -82,9 +81,16 @@ window.addEventListener('scroll', function() {
 });
 
 /* ── Service Worker ── */
+PWA.swRegistration = null;
+
 PWA.registrarSW = function() {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').then(function(reg) {
+    PWA.swRegistration = reg;
+    // Si ya esta instalado y listo, activar notifications server-side ready
+    navigator.serviceWorker.ready.then(function(readyReg) {
+      PWA.swRegistration = readyReg;
+    });
     reg.addEventListener('updatefound', function() {
       var newWorker = reg.installing;
       newWorker.addEventListener('statechange', function() {
@@ -279,10 +285,10 @@ function renderDetalle(p) {
       '</div>',
       '<div class="card2" style="margin-bottom:12px">',
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">',
-          '<div style="font-size:11px;color:var(--pwa-muted)">WIZARD A-D (ERP)</div>',
+          '<div style="font-size:11px;color:var(--pwa-muted)">Gestionar prospecto</div>',
           '<button class="btn btn-ghost" type="button" style="padding:8px 12px;min-height:36px" onclick="PWA.WizardProspecto.abrir(\'' + (p.u_movimiento || '') + '\')">Abrir</button>',
         '</div>',
-        '<div style="font-size:12px;color:var(--pwa-muted)">Gestiona Etapas A, B, C y D con persistencia al ERP. Incluye cámara en Etapa A para móviles/tablets.</div>',
+        '<div style="font-size:12px;color:var(--pwa-muted)">Abre el flujo A-D para continuar o cerrar.</div>',
       '</div>',
       '<div class="card2">',
         '<div style="font-size:11px;color:var(--pwa-muted);margin-bottom:10px">HISTORIAL</div>',
@@ -527,7 +533,17 @@ PWA.obtenerWhatsappLink = function(item) {
 
 PWA.obtenerMapaLink = function(item) {
   if (!item) return '';
-  if (item.link_google_map) return item.link_google_map;
+  var raw = item.link_google_map ? String(item.link_google_map).trim() : '';
+  if (raw) {
+    // Si ya es URL absoluta, devolverla tal cual
+    if (/^https?:\/\//i.test(raw)) return raw;
+    // Si es un par "lat,lng" (con o sin espacios), convertir a URL de Google Maps
+    if (/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(raw)) {
+      return 'https://maps.google.com/?q=' + encodeURIComponent(raw.replace(/\s+/g, ''));
+    }
+    // Cualquier otro string: tratarlo como query de direccion
+    return 'https://maps.google.com/?q=' + encodeURIComponent(raw);
+  }
   if (item.latitude && item.longitude) return 'https://maps.google.com/?q=' + item.latitude + ',' + item.longitude;
   if (item.direccion) return 'https://maps.google.com/?q=' + encodeURIComponent(item.direccion);
   return '';
@@ -578,17 +594,57 @@ PWA.Notificaciones = {
     if (!this.puedeMostrar()) return;
     if (claveSesion && sessionStorage.getItem(claveSesion)) return;
 
-    try {
-      new Notification(titulo, {
-        body: cuerpo,
-        icon: 'assets/icons/icon-192.png',
-        badge: 'assets/icons/icon-192.png'
-      });
+    var opciones = {
+      body:  cuerpo,
+      icon:  'assets/icons/icon-192.png',
+      badge: 'assets/icons/icon-192.png',
+      tag:   claveSesion || 'pwa_notif',
+      renotify: false
+    };
 
+    // --- Preferir el Service Worker (funciona en PWA instalada en Android/Chrome,
+    //     donde `new Notification(...)` lanza TypeError por estar prohibido).
+    var enviadoViaSW = false;
+    var swReady = ('serviceWorker' in navigator) ? navigator.serviceWorker.ready : null;
+
+    function marcarMostrada() {
       if (claveSesion) {
-        sessionStorage.setItem(claveSesion, '1');
+        try { sessionStorage.setItem(claveSesion, '1'); } catch (e) {}
       }
-    } catch (e) {}
+    }
+
+    if (swReady && typeof swReady.then === 'function') {
+      swReady.then(function(reg) {
+        if (reg && typeof reg.showNotification === 'function') {
+          enviadoViaSW = true;
+          reg.showNotification(titulo, opciones).then(marcarMostrada).catch(function(err) {
+            console.warn('[Notif] SW showNotification fallo:', err);
+            // Fallback al constructor clasico
+            try {
+              new Notification(titulo, opciones);
+              marcarMostrada();
+            } catch (e) {}
+          });
+        } else {
+          // SW sin soporte → fallback
+          try {
+            new Notification(titulo, opciones);
+            marcarMostrada();
+          } catch (e) {}
+        }
+      }).catch(function() {
+        try {
+          new Notification(titulo, opciones);
+          marcarMostrada();
+        } catch (e) {}
+      });
+    } else {
+      // Sin SW → fallback clasico (navegador regular)
+      try {
+        new Notification(titulo, opciones);
+        marcarMostrada();
+      } catch (e) {}
+    }
   },
 
   solicitarPermisoDesdeUsuario: function() {
@@ -602,6 +658,12 @@ PWA.Notificaciones = {
       if (permission === 'granted') {
         PWA.mostrarToast('Notificaciones activadas', 'ok');
         PWA.Notificaciones.refrescarDesdePanel();
+        // Registrar push subscription en el backend para que
+        // el server pueda empujar notificaciones aunque la PWA
+        // este cerrada. Silenciosamente no-op si falla.
+        if (PWA.Push && typeof PWA.Push.suscribirse === 'function') {
+          PWA.Push.suscribirse();
+        }
       } else if (permission === 'denied') {
         PWA.mostrarToast('Notificaciones bloqueadas en el navegador', 'warn');
       }
@@ -654,6 +716,114 @@ PWA.Notificaciones = {
     return Notification.permission;
   }
 };
+
+/* ============================================================
+   PWA.Push — Web Push subscription (server-triggered)
+   ------------------------------------------------------------
+   Flujo:
+   1) Usuario otorga permiso de notificaciones
+   2) suscribirse() pide VAPID public key al server
+   3) pushManager.subscribe(...) genera endpoint + keys
+   4) Se POSTea al server para guardarla
+   Cuando el backend haga push (api/push-send.php), el SW lo
+   recibe y muestra la notificacion.
+   ============================================================ */
+PWA.Push = {
+
+  /* Convertir base64url → Uint8Array (requerido por pushManager) */
+  _urlB64ToUint8: function(b64) {
+    var padding = '='.repeat((4 - b64.length % 4) % 4);
+    var base64  = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var raw     = atob(base64);
+    var out     = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) { out[i] = raw.charCodeAt(i); }
+    return out;
+  },
+
+  /* ── Suscribirse al push del navegador y registrar en backend ── */
+  suscribirse: function() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.warn('[Push] Navegador sin soporte');
+      return;
+    }
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+      console.warn('[Push] Sin permiso de notificacion');
+      return;
+    }
+
+    // 1) Obtener VAPID public key
+    PWA.apiPost('api/push-subscribe.php', { opcion: 'public-key' }, function(err, data) {
+      if (err || !data || !data.result || !data.publicKey) {
+        console.warn('[Push] No se pudo obtener public key', err, data);
+        return;
+      }
+      var appServerKey = PWA.Push._urlB64ToUint8(data.publicKey);
+
+      // 2) Subscribir via pushManager
+      navigator.serviceWorker.ready.then(function(reg) {
+        // Si ya hay subscription, reutilizarla (y mandarla al backend por si acaso)
+        return reg.pushManager.getSubscription().then(function(existing) {
+          if (existing) {
+            return existing;
+          }
+          return reg.pushManager.subscribe({
+            userVisibleOnly:      true,
+            applicationServerKey: appServerKey
+          });
+        });
+      }).then(function(subscription) {
+        var raw = subscription.toJSON();
+        var payload = {
+          opcion:   'subscribe',
+          endpoint: raw.endpoint || subscription.endpoint,
+          p256dh:   raw.keys && raw.keys.p256dh,
+          auth:     raw.keys && raw.keys.auth
+        };
+        PWA.apiPost('api/push-subscribe.php', payload, function(err, resp) {
+          if (err || !resp || !resp.result) {
+            console.warn('[Push] Backend rechazo la suscripcion', err, resp);
+          } else {
+            console.log('[Push] Suscripcion registrada OK');
+          }
+        });
+      }).catch(function(e) {
+        console.warn('[Push] subscribe fallo:', e);
+      });
+    });
+  },
+
+  /* ── Desuscribirse (ej. al cerrar sesion) ── */
+  desuscribirse: function() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.ready.then(function(reg) {
+      return reg.pushManager.getSubscription();
+    }).then(function(sub) {
+      if (!sub) return;
+      var endpoint = sub.endpoint;
+      sub.unsubscribe().then(function() {
+        PWA.apiPost('api/push-subscribe.php', {
+          opcion:   'unsubscribe',
+          endpoint: endpoint
+        }, function() {});
+      });
+    }).catch(function() {});
+  }
+};
+
+/* ── Escuchar pushsubscriptionchange del SW (re-subscribirse) ── */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'PUSH_RESUBSCRIBE') {
+      PWA.Push.suscribirse();
+    }
+    if (e.data && e.data.type === 'SYNC_REQUEST') {
+      // Disparado por background sync del SW
+      if (typeof SyncDB !== 'undefined' && SyncDB.sincronizar) {
+        SyncDB.sincronizar();
+      }
+    }
+  });
+}
 
 /* ── Google Calendar (link directo, sin API) ── */
 PWA.abrirGoogleCalendar = function(actividad) {
@@ -713,7 +883,6 @@ PWA.toastAccion = function(msg, labelAccion, fnAccion) {
 };
 
 /* ============================================================
-   PANEL
    ============================================================ */
 PWA.Panel = {
   cargar: function() {
@@ -942,15 +1111,15 @@ PWA.Panel = {
 };
 
 /* ============================================================
-   CAMBIAR ETAPA — Feature con feature flag
    ============================================================ */
 PWA.CambiarEtapa = {
   // ⚠️ FEATURE FLAG — cambiar a null para activar para todos
   soloParaProspecto: null,  // prospecto de prueba
   
   // Matriz de transiciones permitidas
-  // idstatus: 1=A(Nuevo) 2=B(Levant) 3=C(CotSol) 4=D(CotEnt) 5=E(Descart) 6=V(Venta) 7=S(Seguim) 8=X(Cancel)
+  // idstatus: 0=BD(Base de Datos) 1=A(Nuevo) 2=B(Levant) 3=C(CotSol) 4=D(CotEnt) 5=E(Descart) 6=V(Venta) 7=S(Seguim) 8=X(Cancel)
   transicionesPermitidas: {
+    0: [1, 2, 5, 7, 8],        // BD → A, B, S, E, X (rescatar legacy atorados en BD)
     1: [2, 5, 7, 8],           // A → B, S, E, X
     2: [1, 3, 5, 7, 8],        // B → A, C, S, E, X
     3: [1, 2, 4, 5, 7, 8],     // C → B, A, D, S, E, X
@@ -958,9 +1127,10 @@ PWA.CambiarEtapa = {
     7: [1, 2, 3, 4, 5, 8]      // S → A, B, C, D, E, X (reactivar)
     // 5 (E), 6 (V), 8 (X) son terminales → no se pueden cambiar
   },
-  
+
   // Info de cada etapa (nombre + color)
   etapas: {
+    0: { label: 'Base de Datos',      letra: 'BD', color: '#64748b', avance: true  },
     1: { label: 'Nuevo',              letra: 'A', color: '#4f8ef7', avance: true  },
     2: { label: 'Levantamiento',      letra: 'B', color: '#22d3ee', avance: true  },
     3: { label: 'Cotización Solic.',  letra: 'C', color: '#f59e0b', avance: true  },
@@ -1198,7 +1368,6 @@ PWA.CambiarEtapa = {
 };
 
 /* ============================================================
-   LISTA DE PROSPECTOS
    ============================================================ */
 PWA.Lista = {
   etapas: [],
@@ -1408,6 +1577,7 @@ PWA.Lista = {
     html += '<div class="prospect-info">';
     html += '<div class="prospect-nombre">' + nombre + '</div>';
     html += '<div class="prospect-sub">' + (sector || tel || '—') + '</div>';
+    if (p._offline) html += '<span class="prospect-etapa" style="background:var(--pwa-warn);color:#fff;font-size:10px">Pendiente sync</span>';
     if (etapaNombre) html += '<span class="prospect-etapa">' + etapaNombre + '</span>';
     if (valor) html += '<span class="prospect-etapa" style="margin-left:4px;color:var(--pwa-accent2)">' + valor + '</span>';
     html += '</div>';
@@ -1427,7 +1597,6 @@ PWA.Lista = {
 };
 
 /* ============================================================
-   DETALLE DE PROSPECTO (Sheet modal)
    ============================================================ */
 PWA.Detalle = {
   _prospecto: null,
@@ -1531,7 +1700,6 @@ PWA.Detalle = {
 };
 
 /* ============================================================
-   NUEVA ACTIVIDAD
    ============================================================ */
 PWA.NuevaActividad = {
   _nombreProspecto: '',
@@ -1719,16 +1887,471 @@ PWA.NuevaActividad = {
 };
 
 /* ============================================================
-   NUEVO PROSPECTO (stub — expandir en siguiente paso)
+   NUEVO PROSPECTO — formulario de alta con GPS (bridge ERP)
    ============================================================ */
 PWA.NuevoProspecto = {
-  abrir: function() {
-    PWA.toast('Formulario nuevo prospecto — próximamente', 'warn');
+  _gps: null,
+  _combos: { vendedores: [], fuentes: [], loadedV: false, loadedF: false },
+
+  abrir: function(opcionesOcoords) {
+    // Acepta:
+    //   PWA.NuevoProspecto.abrir()                       → flujo normal (GPS automatico)
+    //   PWA.NuevoProspecto.abrir({lat, lng})             → prellenar con coords (tap en mapa)
+    //   PWA.NuevoProspecto.abrir({lat, lng, nombre})     → prellenar nombre tambien
+    this._gps = null;
+    this._combos = { vendedores: [], fuentes: [], loadedV: false, loadedF: false };
+    this._coordsIniciales = null;
+    this._nombreInicial   = '';
+
+    if (opcionesOcoords && typeof opcionesOcoords === 'object') {
+      if (opcionesOcoords.lat && opcionesOcoords.lng) {
+        this._coordsIniciales = {
+          lat: parseFloat(opcionesOcoords.lat),
+          lng: parseFloat(opcionesOcoords.lng)
+        };
+      }
+      if (opcionesOcoords.nombre) this._nombreInicial = String(opcionesOcoords.nombre);
+    }
+
+    this._renderForm();
+
+    // Si venimos de un tap en mapa, prellenar y pedir direccion desde coords
+    if (this._coordsIniciales) {
+      var inp = document.getElementById('np_linkMapa');
+      if (inp) {
+        inp.value = this._coordsIniciales.lat.toFixed(6) + ',' +
+                    this._coordsIniciales.lng.toFixed(6);
+      }
+      if (this._nombreInicial) {
+        var nom = document.getElementById('np_nombre');
+        if (nom) nom.value = this._nombreInicial;
+      }
+      // Lanzar reverseGeocode en background
+      var self = this;
+      setTimeout(function() { self._llenarDireccionDesdeInput(false); }, 100);
+      // Tambien iniciar GPS watcher por si se quiere actualizar
+      this._iniciarGPS();
+    } else {
+      this._iniciarGPS();
+    }
+
+    this._cargarCombos();
+    document.documentElement.classList.add('body-modal-open');
+  },
+
+  cerrar: function() {
+    var bd = document.getElementById('nuevoProspectoBackdrop');
+    if (bd) bd.parentNode.removeChild(bd);
+    if (!document.querySelector('.modal-backdrop.open')) {
+      document.documentElement.classList.remove('body-modal-open');
+    }
+    // Limpiar marker temporal si se vino desde el mapa
+    if (typeof PWA !== 'undefined' && PWA.Mapa && PWA.Mapa._tempMarker && PWA.Mapa.map) {
+      try { PWA.Mapa.map.removeLayer(PWA.Mapa._tempMarker); } catch (e) {}
+      PWA.Mapa._tempMarker = null;
+    }
+  },
+
+  _renderForm: function() {
+    var self = this;
+    var bd = document.createElement('div');
+    bd.className = 'modal-backdrop open';
+    bd.id = 'nuevoProspectoBackdrop';
+    bd.innerHTML = [
+      '<div class="modal-sheet wizard-sheet">',
+        '<div class="modal-handle"></div>',
+        '<div class="wizard-header">',
+          '<div class="wizard-title-wrap">',
+            '<div class="modal-title" style="margin-bottom:4px">Nuevo prospecto</div>',
+            '<div class="wizard-subtitle">Crea un prospecto y abre el flujo A-D</div>',
+          '</div>',
+          '<button class="wizard-close" type="button" onclick="PWA.NuevoProspecto.cerrar()">✕</button>',
+        '</div>',
+        '<div class="wizard-scroll-body">',
+          this._camposHTML(),
+          '<div class="wizard-footer" style="display:flex;gap:8px">',
+            '<button class="btn btn-ghost" type="button" onclick="PWA.NuevoProspecto.cerrar()" style="flex:1">Cancelar</button>',
+            '<button class="btn btn-primary" type="button" onclick="PWA.NuevoProspecto.guardar()" style="flex:1">Guardar y continuar</button>',
+          '</div>',
+        '</div>',
+      '</div>'
+    ].join('');
+    bd.addEventListener('click', function(e) { if (e.target === bd) self.cerrar(); });
+    document.body.appendChild(bd);
+  },
+
+  _camposHTML: function() {
+    var req = '<span style="color:var(--pwa-danger)">*</span>';
+    return [
+      '<div class="form-group"><label class="form-label">Nombre comercial ' + req + '</label>',
+        '<input id="np_nombre" class="form-input" placeholder="Nombre del prospecto"></div>',
+      '<div class="form-group"><label class="form-label">Teléfono</label>',
+        '<input id="np_tel" class="form-input" inputmode="tel"></div>',
+      '<div class="form-group"><label class="form-label">Email</label>',
+        '<input id="np_email" class="form-input" inputmode="email"></div>',
+      '<div class="form-group"><label class="form-label">Vendedor ' + req + '</label>',
+        '<select id="np_vendedor" class="form-input"><option value="">Cargando...</option></select></div>',
+      '<div class="form-group"><label class="form-label">Fuente ' + req + '</label>',
+        '<select id="np_fuente" class="form-input"><option value="">Cargando...</option></select></div>',
+      '<div class="form-group"><label class="form-label">Ubicación GPS ' + req + '</label>',
+        '<div style="display:flex;gap:6px">',
+          '<input id="np_linkMapa" class="form-input" style="flex:1" placeholder="lat,lng (ej. 20.56,-100.41)">',
+          '<button class="btn btn-ghost" type="button" onclick="PWA.NuevoProspecto._reubicar()" title="Obtener mi ubicación">📍</button>',
+          '<button class="btn btn-ghost" type="button" onclick="PWA.NuevoProspecto._llenarDireccionDesdeInput(true)" title="Llenar dirección desde coordenadas">🏠</button>',
+        '</div>',
+        '<div id="np_gps_status" style="font-size:11px;color:var(--pwa-muted);margin-top:4px">Obteniendo ubicación...</div>',
+      '</div>',
+      '<div class="form-group"><label class="form-label">Comentarios</label>',
+        '<textarea id="np_coments" class="form-textarea"></textarea></div>',
+      '<details class="card2 wizard-card-soft" style="margin-bottom:10px">',
+        '<summary style="cursor:pointer;font-size:12px;color:var(--pwa-muted);padding:4px 0">Dirección (opcional)</summary>',
+        '<div style="margin-top:10px">',
+          '<div class="form-group"><label class="form-label">Calle y número</label><input id="np_dir" class="form-input"></div>',
+          '<div class="form-group"><label class="form-label">Colonia</label><input id="np_col" class="form-input"></div>',
+          '<div class="form-group"><label class="form-label">Ciudad</label><input id="np_ciu" class="form-input"></div>',
+          '<div class="form-group"><label class="form-label">Estado</label><input id="np_est" class="form-input"></div>',
+          '<div class="form-group"><label class="form-label">CP</label><input id="np_cp" class="form-input" inputmode="numeric"></div>',
+        '</div>',
+      '</details>',
+      '<details class="card2 wizard-card-soft">',
+        '<summary style="cursor:pointer;font-size:12px;color:var(--pwa-muted);padding:4px 0">Datos fiscales (opcional)</summary>',
+        '<div style="margin-top:10px">',
+          '<div class="form-group"><label class="form-label">RFC</label><input id="np_rfc" class="form-input"></div>',
+          '<div class="form-group"><label class="form-label">Giro</label><input id="np_giro" class="form-input"></div>',
+        '</div>',
+      '</details>'
+    ].join('');
+  },
+
+  _iniciarGPS: function() {
+    var self = this;
+    if (!navigator.geolocation) {
+      var s = document.getElementById('np_gps_status');
+      if (s) s.textContent = 'Tu navegador no soporta GPS — ingresa coordenadas manualmente';
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        var coord = pos.coords.latitude.toFixed(6) + ',' + pos.coords.longitude.toFixed(6);
+        self._gps = coord;
+        var inp = document.getElementById('np_linkMapa');
+        var st  = document.getElementById('np_gps_status');
+        if (inp && !inp.value) inp.value = coord;
+        if (st) { st.textContent = '✓ Ubicación detectada'; st.style.color = 'var(--pwa-ok)'; }
+        // Autocompletar direccion (sin forzar: solo llena campos vacios)
+        self._llenarDireccion(coord, false);
+      },
+      function(err) {
+        var st = document.getElementById('np_gps_status');
+        if (st) { st.textContent = 'No se pudo obtener GPS — ingresa coordenadas manualmente'; st.style.color = 'var(--pwa-warn)'; }
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    );
+  },
+
+  _reubicar: function() {
+    var st = document.getElementById('np_gps_status');
+    if (st) { st.textContent = 'Buscando ubicación...'; st.style.color = 'var(--pwa-muted)'; }
+    this._iniciarGPS();
+  },
+
+  // Lee coordenadas del input y dispara el autollenado.
+  // forzar=true sobrescribe lo que el usuario ya escribio.
+  _llenarDireccionDesdeInput: function(forzar) {
+    var coord = (document.getElementById('np_linkMapa') || {}).value || '';
+    coord = String(coord).trim();
+    if (!/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(coord)) {
+      PWA.toast('Coordenadas invalidas (formato lat,lng)', 'warn');
+      return;
+    }
+    this._llenarDireccion(coord, !!forzar);
+  },
+
+  // Llama a api/geo.php ReverseGeocode y pobla los campos de direccion.
+  _llenarDireccion: function(coord, forzar) {
+    var parts = String(coord).split(',');
+    var lat = parseFloat(parts[0]);
+    var lng = parseFloat(parts[1]);
+    if (!lat || !lng) return;
+
+    var st = document.getElementById('np_gps_status');
+    var prev = st ? st.textContent : '';
+    if (st) { st.textContent = '🔎 Buscando direccion...'; st.style.color = 'var(--pwa-muted)'; }
+
+    PWA.apiPost('api/geo.php', { opcion: 'ReverseGeocode', lat: lat, lng: lng }, function(err, data) {
+      if (err || !data || !data.result) {
+        if (st) { st.textContent = prev || '✓ Ubicación detectada'; st.style.color = 'var(--pwa-ok)'; }
+        if (forzar) {
+          PWA.toast((data && data.msjError) ? data.msjError : 'No se pudo obtener la direccion', 'warn');
+        }
+        return;
+      }
+
+      var c = data.contenido || {};
+      var pares = [
+        ['np_dir', c.calle],
+        ['np_col', c.colonia],
+        ['np_ciu', c.ciudad],
+        ['np_est', c.estado],
+        ['np_cp',  c.cp]
+      ];
+      var llenados = 0;
+      pares.forEach(function(p) {
+        var el = document.getElementById(p[0]);
+        if (!el) return;
+        var val = (p[1] == null) ? '' : String(p[1]).trim();
+        if (!val) return;
+        // Solo llenar campos vacios, salvo que se haya pedido forzar
+        if (forzar || !el.value || !el.value.trim()) {
+          el.value = val;
+          llenados++;
+        }
+      });
+
+      if (st) {
+        st.textContent = llenados > 0
+          ? '✓ Dirección autocompletada (' + llenados + ' campos)'
+          : '✓ Ubicación detectada';
+        st.style.color = 'var(--pwa-ok)';
+      }
+
+      // Abrir el <details> de Direccion si estaba cerrado y se llenaron campos
+      if (llenados > 0) {
+        var detalles = document.querySelectorAll('.wizard-scroll-body details');
+        for (var i = 0; i < detalles.length; i++) {
+          var sum = detalles[i].querySelector('summary');
+          if (sum && /Direcci/i.test(sum.textContent || '')) {
+            detalles[i].open = true;
+            break;
+          }
+        }
+      }
+    });
+  },
+
+  _cargarCombos: function() {
+    var self = this;
+
+    // --- Vendedores ---
+    if (navigator.onLine) {
+      PWA.apiPost('api/prospectos.php', { option: 'TraerVendedoresPWA' }, function(err, data) {
+        self._combos.loadedV = true;
+        if (!err && data && data.result) {
+          self._combos.vendedores = data.contenido || [];
+          // Guardar en cache para uso offline
+          if (typeof SyncDB !== 'undefined' && SyncDB && SyncDB.db) {
+            SyncDB.guardarCombo('vendedores', self._combos.vendedores);
+          }
+        }
+        self._poblarVendedores();
+      });
+    } else {
+      // Offline: leer de IndexedDB
+      if (typeof SyncDB !== 'undefined' && SyncDB && SyncDB.db) {
+        SyncDB.leerCombo('vendedores', function(datos) {
+          self._combos.loadedV = true;
+          self._combos.vendedores = datos || [];
+          self._poblarVendedores();
+          if (!datos || !datos.length) {
+            PWA.toast('Sin datos de vendedores en cache — conecta a internet primero', 'warn');
+          }
+        });
+      } else {
+        self._combos.loadedV = true;
+        self._poblarVendedores();
+      }
+    }
+
+    // --- Fuentes ---
+    if (navigator.onLine) {
+      PWA.apiPost('api/prospectos.php', { option: 'TraerFuentesContactoPWA' }, function(err, data) {
+        self._combos.loadedF = true;
+        if (!err && data && data.result) {
+          self._combos.fuentes = data.contenido || [];
+          // Guardar en cache para uso offline
+          if (typeof SyncDB !== 'undefined' && SyncDB && SyncDB.db) {
+            SyncDB.guardarCombo('fuentes', self._combos.fuentes);
+          }
+        }
+        self._poblarFuentes();
+      });
+    } else {
+      // Offline: leer de IndexedDB
+      if (typeof SyncDB !== 'undefined' && SyncDB && SyncDB.db) {
+        SyncDB.leerCombo('fuentes', function(datos) {
+          self._combos.loadedF = true;
+          self._combos.fuentes = datos || [];
+          self._poblarFuentes();
+        });
+      } else {
+        self._combos.loadedF = true;
+        self._poblarFuentes();
+      }
+    }
+  },
+
+  _esc: function(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  },
+
+  _poblarVendedores: function() {
+    var sel = document.getElementById('np_vendedor');
+    if (!sel) return;
+    var self = this;
+    var mine = (PWA.session && PWA.session.salesman) ? String(PWA.session.salesman) : '';
+    var html = '<option value="">Selecciona vendedor</option>';
+    this._combos.vendedores.forEach(function(v) {
+      var selected = (String(v.salesmancode) === mine) ? ' selected' : '';
+      html += '<option value="' + self._esc(v.salesmancode) + '"' + selected + '>' + self._esc(v.salesmanname) + '</option>';
+    });
+    sel.innerHTML = html;
+  },
+
+  _poblarFuentes: function() {
+    var sel = document.getElementById('np_fuente');
+    if (!sel) return;
+    var self = this;
+    var html = '<option value="">Selecciona fuente</option>';
+    this._combos.fuentes.forEach(function(f) {
+      html += '<option value="' + self._esc(f.CustLeadSourceId) + '">' + self._esc(f.CustLeadSourceNom) + '</option>';
+    });
+    sel.innerHTML = html;
+  },
+
+  _val: function(id) {
+    var e = document.getElementById(id);
+    return e ? (e.value || '').trim() : '';
+  },
+
+  guardar: function() {
+    var self = this;
+    var nombre   = this._val('np_nombre');
+    var vendedor = this._val('np_vendedor');
+    var fuente   = this._val('np_fuente');
+    var linkMapa = this._val('np_linkMapa');
+
+    if (!nombre)   { PWA.toast('Falta nombre comercial', 'warn'); return; }
+    if (!vendedor) { PWA.toast('Selecciona un vendedor', 'warn'); return; }
+    if (!fuente)   { PWA.toast('Selecciona una fuente', 'warn'); return; }
+    if (!linkMapa || !/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(linkMapa)) {
+      PWA.toast('Coordenadas inválidas (formato lat,lng)', 'warn');
+      return;
+    }
+
+    // Los apellidos ya no se piden en el formulario; se mandan vacios para
+    // que el modelo legacy siga recibiendo las mismas llaves del payload.
+    var apat = '';
+    var amat = '';
+
+    var payload = {
+      option: 'insertarEtapaA',
+      lblProspectoId_Existente: '',
+      nombre: nombre,
+      aPaterno: apat,
+      aMaterno: amat,
+      aPaterno_alterno: apat,
+      conName: nombre,
+      cmbVendedor: vendedor,
+      CustLeadSourceId: fuente,
+      txtLinkMapa_pros: linkMapa,
+      txtComentarios: this._val('np_coments'),
+      direccion: this._val('np_dir'),
+      colonia: this._val('np_col'),
+      ciudad: this._val('np_ciu'),
+      estado: this._val('np_est'),
+      cp: this._val('np_cp'),
+      rfc: this._val('np_rfc'),
+      giro: this._val('np_giro'),
+      email: this._val('np_email'),
+      // El modelo legacy (ProspectV2Modelo.php) lee $_POST['telefonoFijo'],
+      // 'telefonoMovil' y 'nextel' — NO 'phoneno'. Mandamos el telefono del
+      // formulario como telefonoFijo (principal) y tambien como telefonoMovil
+      // para que ambos inserts (debtorsmaster y custcontacts) queden con valor.
+      telefonoFijo:  this._val('np_tel'),
+      telefonoMovil: this._val('np_tel'),
+      nextel:        '',
+      // Se deja phoneno por compatibilidad hacia adelante por si el modelo
+      // se actualiza para leerlo directo.
+      phoneno: this._val('np_tel')
+    };
+
+    // --- Rama OFFLINE: encolar en IndexedDB para que api/sync.php lo procese
+    //     cuando regrese la conexion. Se manda el mismo payload que iria a
+    //     api/prospectos.php (option=insertarEtapaA), y sync.php replica el
+    //     passthrough legacy. De esta forma un prospecto creado sin internet
+    //     queda identico a uno creado online en cuanto se sincronice.
+    if (!navigator.onLine) {
+      if (typeof SyncDB === 'undefined' || !SyncDB || !SyncDB.db) {
+        PWA.toast('Sin conexion y cola no disponible', 'warn');
+        return;
+      }
+      SyncDB.encolar('nuevo_prospecto', payload, function(ok) {
+        if (!ok) {
+          PWA.toast('No se pudo guardar offline', 'warn');
+          return;
+        }
+        // Agregar prospecto temporal a la lista en memoria para feedback visual
+        var tempProspecto = {
+          u_movimiento: 'offline_' + Date.now(),
+          prospecto: nombre,
+          telefono_fijo: payload.telefonoFijo || '',
+          email: payload.email || '',
+          idstatus: 1,
+          _offline: true  // marcador para distinguirlo en el render
+        };
+        if (PWA.state && PWA.state.prospectos) {
+          PWA.state.prospectos.unshift(tempProspecto);
+        }
+        PWA.toast('Prospecto guardado offline — se enviara al reconectar', 'ok');
+        self.cerrar();
+        if (PWA.Lista && typeof PWA.Lista.renderizar === 'function') {
+          PWA.Lista.renderizar();
+        }
+      });
+      return;
+    }
+
+    PWA.toast('Creando prospecto...', 'ok');
+
+    PWA.apiPost('api/prospectos.php', payload, function(err, data) {
+      // Si la red fallo despues de pasar el check de navigator.onLine
+      // (por ejemplo timeout), encolar el payload tambien como fallback.
+      if (err) {
+        if (typeof SyncDB !== 'undefined' && SyncDB && SyncDB.db) {
+          SyncDB.encolar('nuevo_prospecto', payload, function(ok) {
+            if (ok) {
+              PWA.toast('Sin red — guardado en cola para enviar', 'warn');
+              self.cerrar();
+              if (PWA.Lista && typeof PWA.Lista.cargar === 'function') PWA.Lista.cargar();
+            } else {
+              PWA.toast('Error de conexion', 'warn');
+            }
+          });
+          return;
+        }
+        PWA.toast('Error de conexion', 'warn');
+        return;
+      }
+      if (!data || !data.result) {
+        var msg = (data && data.msjError) ? data.msjError : 'No se pudo crear el prospecto';
+        PWA.toast('Error: ' + msg, 'warn');
+        return;
+      }
+      var uMov = data.result;
+      PWA.toast('Prospecto #' + uMov + ' creado ✓', 'ok');
+      self.cerrar();
+      if (PWA.Lista && typeof PWA.Lista.cargar === 'function') PWA.Lista.cargar();
+      setTimeout(function() {
+        if (PWA.WizardProspecto && typeof PWA.WizardProspecto.abrir === 'function') {
+          PWA.WizardProspecto.abrir(uMov);
+        }
+      }, 300);
+    });
   }
 };
 
 /* ============================================================
-   AGENDA
    ============================================================ */
 PWA.Agenda = {
   _mapaActividades: {},
@@ -1790,8 +2413,21 @@ PWA.Agenda = {
     var mesSel  = parseInt(partesFecha[1], 10) - 1;
     var tituloMes = mesesES[mesSel] + ' ' + anioSel;
 
+    // Actividades del día (calculadas antes para decidir si mostrar botón exportar)
+    var actividadesDia = PWA.state.agenda.filter(function(a) {
+      return (a.fecha_compromiso || '').substring(0,10) === fechaSeleccionada;
+    });
+
     var html = '';
-    html += '<p class="section-title" style="margin:16px 16px 8px">' + tituloMes + '</p>';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin:16px 16px 8px;gap:8px">';
+    html += '<p class="section-title" style="margin:0">' + tituloMes + '</p>';
+    if (actividadesDia.length > 0) {
+      html += '<button class="btn btn-ghost" style="padding:6px 10px;font-size:11px;min-height:0;display:inline-flex;align-items:center;gap:4px" onclick="PWA.Agenda.exportarDiaICS()" title="Exportar el día a Calendar (.ics)">';
+      html += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+      html += 'Exportar d&iacute;a';
+      html += '</button>';
+    }
+    html += '</div>';
 
     // Strip de días
     html += '<div class="day-strip">';
@@ -1805,11 +2441,7 @@ PWA.Agenda = {
     });
     html += '</div>';
 
-    // Actividades del día seleccionado
-    var actividadesDia = PWA.state.agenda.filter(function(a) {
-      return (a.fecha_compromiso || '').substring(0,10) === fechaSeleccionada;
-    });
-
+    // Actividades del día ya se calcularon arriba (antes del header para decidir botón exportar)
     var coloresTipo = { '1': '#4f8ef7', '2': '#34d399', '3': '#f59e0b', '4': '#a855f7', '5': '#8892a4' };
 
     if (actividadesDia.length === 0) {
@@ -1882,6 +2514,118 @@ PWA.Agenda = {
     });
   },
 
+  /* ──────────────────────────────────────────────────────────
+     Exportar TODAS las actividades del día a un archivo .ics
+     (importable a Google Calendar, Apple Calendar, Outlook...)
+     ────────────────────────────────────────────────────────── */
+  exportarDiaICS: function() {
+    var fecha = PWA.state.fechaAgenda || PWA.fechaHoy();
+    var actividadesDia = (PWA.state.agenda || []).filter(function(a) {
+      return (a.fecha_compromiso || '').substring(0,10) === fecha;
+    });
+
+    if (actividadesDia.length === 0) {
+      PWA.toast('No hay actividades para exportar', 'error');
+      return;
+    }
+
+    // Helper: escapar texto para ICS (RFC 5545)
+    function escICS(s) {
+      if (s == null) return '';
+      return String(s)
+        .replace(/\\/g, '\\\\')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,')
+        .replace(/\r?\n/g, '\\n');
+    }
+    // Helper: fecha/hora local → YYYYMMDDTHHMMSS (sin Z, local time)
+    function fmtDT(fechaStr, horaStr) {
+      var f = (fechaStr || '').substring(0,10).replace(/-/g, '');
+      var h = (horaStr || '09:00:00');
+      if (h.length === 5) h = h + ':00';
+      return f + 'T' + h.replace(/:/g, '');
+    }
+    // Helper: timestamp UTC actual (DTSTAMP) → YYYYMMDDTHHMMSSZ
+    function nowUTC() {
+      var d = new Date();
+      function p(n) { return ('0'+n).slice(-2); }
+      return d.getUTCFullYear() +
+             p(d.getUTCMonth()+1) +
+             p(d.getUTCDate()) + 'T' +
+             p(d.getUTCHours()) +
+             p(d.getUTCMinutes()) +
+             p(d.getUTCSeconds()) + 'Z';
+    }
+    // Helper: inicio + 1 hora
+    function horaMasUna(horaStr) {
+      var h = horaStr || '09:00:00';
+      if (h.length === 5) h = h + ':00';
+      var d = new Date('1970-01-01T' + h);
+      d.setHours(d.getHours() + 1);
+      function p(n) { return ('0'+n).slice(-2); }
+      return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+
+    var dtstamp = nowUTC();
+    var lineas = [];
+    lineas.push('BEGIN:VCALENDAR');
+    lineas.push('VERSION:2.0');
+    lineas.push('PRODID:-//ROGMAI//Prospectos PWA//ES');
+    lineas.push('CALSCALE:GREGORIAN');
+    lineas.push('METHOD:PUBLISH');
+    lineas.push('X-WR-CALNAME:Agenda ' + fecha);
+    lineas.push('X-WR-TIMEZONE:America/Mexico_City');
+
+    actividadesDia.forEach(function(a, idx) {
+      var hora      = a.hora || '09:00:00';
+      var dtStart   = fmtDT(a.fecha_compromiso || fecha, hora);
+      var dtEnd     = fmtDT(a.fecha_compromiso || fecha, horaMasUna(hora));
+      var titulo    = a.titulo || a.concepto || 'Actividad';
+      var prospecto = a.nombreProspecto || a.nombre || '';
+      var umov      = a.u_movimiento || '';
+      var utask     = a.u_task || '';
+      var descr     = (a.descripcion || '') +
+                      (prospecto ? '\nProspecto: ' + prospecto : '') +
+                      (umov      ? '\nOp: ' + umov             : '');
+      var location  = a.direccion || '';
+      var uid       = (utask || umov || ('act-' + idx)) + '@prospectos.rogmai';
+
+      lineas.push('BEGIN:VEVENT');
+      lineas.push('UID:' + uid);
+      lineas.push('DTSTAMP:' + dtstamp);
+      // Sin TZID → cliente interpreta como "floating" local time (suficiente para agenda diaria)
+      lineas.push('DTSTART:' + dtStart);
+      lineas.push('DTEND:'   + dtEnd);
+      lineas.push('SUMMARY:' + escICS(titulo + (prospecto ? ' — ' + prospecto : '')));
+      if (descr)    lineas.push('DESCRIPTION:' + escICS(descr));
+      if (location) lineas.push('LOCATION:'    + escICS(location));
+      lineas.push('STATUS:CONFIRMED');
+      lineas.push('END:VEVENT');
+    });
+
+    lineas.push('END:VCALENDAR');
+
+    // RFC 5545 pide CRLF
+    var contenido = lineas.join('\r\n') + '\r\n';
+
+    try {
+      var blob = new Blob([contenido], { type: 'text/calendar;charset=utf-8' });
+      var url  = URL.createObjectURL(blob);
+      var a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'agenda_' + fecha + '.ics';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+
+      PWA.toast('Agenda exportada (' + actividadesDia.length + ' actividades)', 'ok');
+    } catch (err) {
+      console.error('[exportarDiaICS]', err);
+      PWA.toast('No se pudo exportar', 'error');
+    }
+  },
+
   cargarNecesitanAtencion: function(contenedor) {
     // Crear placeholder mientras carga
     var seccion = document.createElement('div');
@@ -1936,7 +2680,6 @@ PWA.Agenda = {
 };
 
 /* ============================================================
-   PERFIL
    ============================================================ */
 PWA.Perfil = {
   cargar: function() {
@@ -1965,6 +2708,12 @@ PWA.Perfil = {
     html += '<div class="card">';
     html += '<div id="notificacionesEstado" style="font-size:13px;color:var(--pwa-muted);line-height:1.6;margin-bottom:12px">Cargando estado...</div>';
     html += '<div id="notificacionesAccion"></div>';
+    html += '</div>';
+
+    html += '<p class="section-title">Aplicación</p>';
+    html += '<div class="card">';
+    html += '<div id="actualizarAppEstado" style="font-size:13px;color:var(--pwa-muted);line-height:1.6;margin-bottom:12px">Forzar descarga de la última versión sin reinstalar.</div>';
+    html += '<button id="btnActualizarApp" class="btn btn-primary btn-full" onclick="PWA.Perfil.actualizarApp()">🔄 Actualizar app</button>';
     html += '</div>';
 
     html += '<p class="section-title">Información</p>';
@@ -2019,11 +2768,61 @@ PWA.Perfil = {
     }
 
     estadoEl.textContent = 'Este navegador no soporta notificaciones.';
+  },
+
+  /* ── Forzar actualizacion de la PWA sin reinstalar ──
+     (a) skipWaiting al SW en espera (si lo hay)
+     (b) registration.update() busca nueva version
+     (c) borra caches del SW (prospectos-*, osm-tiles-*)
+     (d) recarga con cache busting */
+  actualizarApp: function() {
+    var btn = document.getElementById('btnActualizarApp');
+    var est = document.getElementById('actualizarAppEstado');
+    if (btn) { btn.disabled = true; btn.textContent = 'Buscando actualizacion...'; }
+    if (est) { est.textContent = 'Revisando si hay nueva version...'; }
+
+    function reloadDuro() {
+      if (est) { est.textContent = 'Actualizando — recargando...'; }
+      // Cache busting: agregar ?v=timestamp al URL actual
+      var u = new URL(window.location.href);
+      u.searchParams.set('_v', Date.now());
+      setTimeout(function() { window.location.replace(u.toString()); }, 400);
+    }
+
+    if (!('serviceWorker' in navigator)) {
+      reloadDuro();
+      return;
+    }
+
+    navigator.serviceWorker.getRegistration().then(function(reg) {
+      var pasos = [];
+
+      // Si hay un SW en waiting, decirle que tome el control
+      if (reg && reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+
+      // Buscar nueva version
+      if (reg) { pasos.push(reg.update().catch(function() { return null; })); }
+
+      // Borrar caches
+      if ('caches' in window) {
+        pasos.push(
+          caches.keys().then(function(keys) {
+            return Promise.all(keys.map(function(k) {
+              // Borramos caches del SW — se vuelven a llenar en el siguiente fetch
+              return caches.delete(k);
+            }));
+          })
+        );
+      }
+
+      Promise.all(pasos).then(reloadDuro).catch(reloadDuro);
+    }).catch(reloadDuro);
   }
 };
 
 /* ============================================================
-   CHAT (stub — el módulo completo es PWA.Chat)
    ============================================================ */
 PWA.Chat = {
   abrir: function(uMovimiento) {

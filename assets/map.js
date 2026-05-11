@@ -57,8 +57,87 @@ PWA.Mapa = {
       if (PWA.Mapa.map) PWA.Mapa.map.invalidateSize();
     }, 100);
 
+    // Long-press en mapa (en area sin pin) → crear nuevo prospecto con esas coords
+    PWA.Mapa._cablearLongPress();
+
     PWA.Mapa.obtenerMiPosicion();
     PWA.Mapa.cargarProspectosEnMapa();
+  },
+
+  /* ── Long-press (600ms) en mapa vacio → NuevoProspecto con coords ── */
+  _tempMarker: null,
+  _longPressTimer: null,
+
+  _cablearLongPress: function() {
+    if (!PWA.Mapa.map || PWA.Mapa._longPressCableado) return;
+    PWA.Mapa._longPressCableado = true;
+
+    var map = PWA.Mapa.map;
+
+    // Android/iOS: contextmenu dispara con long-press
+    map.on('contextmenu', function(e) {
+      PWA.Mapa._abrirNuevoEnCoord(e.latlng);
+    });
+
+    // Fallback para navegadores que no emiten contextmenu bien en touch:
+    // detectar mousedown/touchstart y medir duracion
+    var startPos = null;
+    map.on('mousedown', function(e) {
+      // Ignorar si toco un pin (Leaflet los maneja aparte)
+      if (e.originalEvent && e.originalEvent.target &&
+          e.originalEvent.target.closest('.leaflet-marker-icon')) return;
+
+      startPos = e.latlng;
+      clearTimeout(PWA.Mapa._longPressTimer);
+      PWA.Mapa._longPressTimer = setTimeout(function() {
+        if (startPos) PWA.Mapa._abrirNuevoEnCoord(startPos);
+      }, 600);
+    });
+
+    map.on('mouseup',    function() { clearTimeout(PWA.Mapa._longPressTimer); });
+    map.on('mousemove',  function() { clearTimeout(PWA.Mapa._longPressTimer); });
+    map.on('dragstart',  function() { clearTimeout(PWA.Mapa._longPressTimer); });
+    map.on('movestart',  function() { clearTimeout(PWA.Mapa._longPressTimer); });
+  },
+
+  _abrirNuevoEnCoord: function(latlng) {
+    if (!latlng) return;
+    var lat = latlng.lat.toFixed(6);
+    var lng = latlng.lng.toFixed(6);
+
+    // Marker temporal para feedback visual
+    if (PWA.Mapa._tempMarker) {
+      PWA.Mapa.map.removeLayer(PWA.Mapa._tempMarker);
+    }
+    PWA.Mapa._tempMarker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        html: '<div style="width:18px;height:18px;border-radius:50%;background:#f59e0b;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);animation:mapaTempPin 1.2s ease-in-out infinite"></div>',
+        className: '',
+        iconSize:   [18, 18],
+        iconAnchor: [9, 9]
+      })
+    }).addTo(PWA.Mapa.map);
+
+    // Abrir NuevoProspecto con coords precargadas
+    if (PWA.NuevoProspecto && typeof PWA.NuevoProspecto.abrir === 'function') {
+      PWA.NuevoProspecto.abrir({ lat: lat, lng: lng });
+    } else {
+      // Si aun no existe la funcion que acepta coords, usar la API existente
+      // y esperar que el form aparezca para llenar el campo.
+      if (PWA.NuevoProspecto && PWA.NuevoProspecto.abrir) {
+        PWA.NuevoProspecto.abrir();
+      }
+      setTimeout(function() {
+        var el = document.getElementById('np_linkMapa');
+        if (el) {
+          el.value = lat + ',' + lng;
+          // Disparar reverseGeocode si existe
+          if (PWA.NuevoProspecto && typeof PWA.NuevoProspecto._llenarDireccionDesdeInput === 'function') {
+            PWA.NuevoProspecto._llenarDireccionDesdeInput(false);
+          }
+        }
+      }, 300);
+    }
   },
 
   colorPorEstado: function(prospecto) {
@@ -78,6 +157,54 @@ PWA.Mapa = {
       iconSize:   [14, 14],
       iconAnchor: [7, 7]
     });
+  },
+
+  /* ── Trazar ruta en Google Maps (origen = GPS actual, destino = prospecto) ── */
+  trazarRuta: function(destLat, destLng) {
+    destLat = parseFloat(destLat);
+    destLng = parseFloat(destLng);
+    if (!destLat || !destLng) {
+      if (PWA && PWA.toast) PWA.toast('Coordenadas invalidas', 'warn');
+      return;
+    }
+
+    function abrirConOrigen(origLat, origLng) {
+      var base = 'https://www.google.com/maps/dir/?api=1';
+      var url;
+      if (origLat && origLng) {
+        url = base + '&origin=' + origLat + ',' + origLng +
+                     '&destination=' + destLat + ',' + destLng +
+                     '&travelmode=driving';
+      } else {
+        // Sin origen → Google Maps tomara la ubicacion del dispositivo
+        url = base + '&destination=' + destLat + ',' + destLng +
+                     '&travelmode=driving';
+      }
+      window.open(url, '_blank');
+    }
+
+    // 1) Si ya tenemos un marker con mi posicion, usar ese
+    if (PWA.Mapa.miPosicion) {
+      var ll = PWA.Mapa.miPosicion.getLatLng();
+      if (ll) { abrirConOrigen(ll.lat, ll.lng); return; }
+    }
+
+    // 2) Pedir GPS fresco (rapido, sin bloquear)
+    if (navigator.geolocation) {
+      if (PWA && PWA.toast) PWA.toast('Obteniendo ubicacion...', 'ok');
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        abrirConOrigen(pos.coords.latitude, pos.coords.longitude);
+      }, function() {
+        // Sin GPS → abrir sin origen
+        abrirConOrigen(null, null);
+      }, {
+        enableHighAccuracy: true,
+        maximumAge:         60000,
+        timeout:            8000
+      });
+    } else {
+      abrirConOrigen(null, null);
+    }
   },
 
   obtenerMiPosicion: function() {
@@ -177,8 +304,27 @@ PWA.Mapa = {
     var pin   = PWA.Mapa.crearPin(color);
     var nombre = p.prospecto || p.nombre || p.DebtorName || 'Prospecto';
 
+    // Escapar nombre para contexto HTML (atributo title / contenido)
+    var nombreHtml = nombre
+      .replace(/&/g,  '&amp;')
+      .replace(/</g,  '&lt;')
+      .replace(/>/g,  '&gt;')
+      .replace(/"/g,  '&quot;')
+      .replace(/'/g, '&#39;');
+
+    var popupHtml = ''
+      + '<div style="min-width:170px">'
+      +   '<strong>' + nombreHtml + '</strong>'
+      +   '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
+      +     '<button onclick="PWA.Detalle.abrir(\'' + p.u_movimiento + '\')" '
+      +       'style="flex:1;min-width:70px;padding:5px 8px;background:#4f8ef7;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">Ver detalle</button>'
+      +     '<button onclick="PWA.Mapa.trazarRuta(' + lat + ',' + lng + ')" '
+      +       'style="flex:1;min-width:70px;padding:5px 8px;background:#34d399;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">🧭 Trazar ruta</button>'
+      +   '</div>'
+      + '</div>';
+
     L.marker([lat, lng], { icon: pin })
-      .bindPopup('<strong>' + nombre + '</strong><br><button onclick="PWA.Detalle.abrir(\'' + p.u_movimiento + '\')" style="margin-top:6px;padding:4px 10px;background:#4f8ef7;color:white;border:none;border-radius:6px;cursor:pointer">Ver detalle</button>')
+      .bindPopup(popupHtml)
       .addTo(PWA.Mapa.markersLayer);
 
     pintados++;

@@ -825,6 +825,13 @@ html, body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Pulso del marker temporal en el mapa (tap-para-crear) */
+@keyframes mapaTempPin {
+  0%   { transform: scale(1);   box-shadow: 0 2px 6px rgba(245,158,11,0.5); }
+  50%  { transform: scale(1.3); box-shadow: 0 2px 12px rgba(245,158,11,0.8); }
+  100% { transform: scale(1);   box-shadow: 0 2px 6px rgba(245,158,11,0.5); }
+}
+
 /* ── Toast ── */
 #toastContainer {
   position: fixed;
@@ -1227,4 +1234,16 @@ html.body-modal-open body {
     font-size: 10px;
     gap: 3px;
   }
+}
+
+/* ============================================================
+   PWA override: wizard full-screen en mobile portrait
+   ============================================================ */
+@media (max-width: 768px) and (orientation: portrait) {
+  .modal-sheet.wizard-sheet {
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  .wizard-sheet .modal-handle { display: none; }
 }

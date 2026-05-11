@@ -4,7 +4,7 @@
    ============================================================ */
 
 var DB_NAME    = 'prospectos_offline';
-var DB_VERSION = 1;
+var DB_VERSION = 2;
 
 var SyncDB = {
   db: null,
@@ -28,6 +28,10 @@ var SyncDB = {
       // Cache local de agenda
       if (!db.objectStoreNames.contains('agenda_cache')) {
         db.createObjectStore('agenda_cache', { keyPath: 'u_task' });
+      }
+      // Cache de combos (vendedores, fuentes) para formulario offline
+      if (!db.objectStoreNames.contains('combos_cache')) {
+        db.createObjectStore('combos_cache', { keyPath: 'clave' });
       }
     };
 
@@ -57,6 +61,8 @@ var SyncDB = {
     });
     tx.oncomplete = function() {
       SyncDB.actualizarBadgeSync();
+      // Registrar background sync para que el SW sincronice al reconectar
+      SyncDB.registrarBackgroundSync();
       if (callback) callback(true);
     };
     tx.onerror = function() {
@@ -158,6 +164,17 @@ var SyncDB = {
     });
   },
 
+  /* ── Registrar Background Sync con el Service Worker ── */
+  registrarBackgroundSync: function() {
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+      navigator.serviceWorker.ready.then(function(reg) {
+        return reg.sync.register('sync-queue');
+      }).catch(function(err) {
+        console.warn('Background sync no registrado:', err);
+      });
+    }
+  },
+
   /* ── Cache de prospectos para offline ── */
   guardarProspectosCache: function(prospectos) {
     if (!SyncDB.db) return;
@@ -194,5 +211,35 @@ var SyncDB = {
     req.onsuccess = function(e) {
       if (callback) callback(e.target.result || []);
     };
+  },
+
+  /* ── Cache de combos (vendedores, fuentes, etc.) para offline ── */
+  guardarCombo: function(clave, datos) {
+    if (!SyncDB.db) return;
+    try {
+      var tx    = SyncDB.db.transaction(['combos_cache'], 'readwrite');
+      var store = tx.objectStore('combos_cache');
+      store.put({ clave: clave, datos: datos, timestamp: Date.now() });
+    } catch (e) {
+      console.warn('Error guardando combo cache:', e);
+    }
+  },
+
+  leerCombo: function(clave, callback) {
+    if (!SyncDB.db) { if (callback) callback(null); return; }
+    try {
+      var tx    = SyncDB.db.transaction(['combos_cache'], 'readonly');
+      var store = tx.objectStore('combos_cache');
+      var req   = store.get(clave);
+      req.onsuccess = function(e) {
+        var row = e.target.result;
+        if (callback) callback(row ? row.datos : null);
+      };
+      req.onerror = function() {
+        if (callback) callback(null);
+      };
+    } catch (e) {
+      if (callback) callback(null);
+    }
   }
 };
