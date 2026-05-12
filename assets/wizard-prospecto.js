@@ -696,6 +696,8 @@
       });
 
       var orderno = (document.getElementById('wc_orderno') || { value: '' }).value;
+      // El modelo legacy (GuardarEtapaC) necesita year/mes/dia para la fecha del pedido
+      var hoy = new Date();
       var payload = {
         option: orderno ? 'ModificarEtapaC' : 'GuardarEtapaC',
         u_movimientoID: this.uMovimiento,
@@ -706,6 +708,9 @@
         subtotal: subtotal.toFixed(2),
         iva: iva.toFixed(2),
         total: total.toFixed(2),
+        year: String(hoy.getFullYear()),
+        mes: ('0' + (hoy.getMonth() + 1)).slice(-2),
+        dia: ('0' + hoy.getDate()).slice(-2),
         txtCondicionesComerciales: (document.getElementById('wc_cond') || { value: '' }).value,
         productosC: JSON.stringify(this.productosC.map(function(p) {
           return {

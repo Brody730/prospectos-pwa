@@ -263,12 +263,25 @@ function renderDetalle(p) {
       '<p style="margin:12px 0 8px;color:var(--pwa-muted)">' + (p.direccion || 'Sin dirección registrada') + '</p>',
       '<p style="margin:0 0 4px;color:var(--pwa-muted)">' + (tel || 'Sin teléfono') + '</p>',
       '<p style="margin:0 0 20px;color:var(--pwa-muted)">' + (p.email || 'Sin email') + '</p>',
-      ['<div class="panel-action-row" style="margin-bottom:16px">',
-        (tel ? '<a href="tel:' + tel.replace(/\s+/g, '') + '" class="btn btn-primary" style="flex:1">📞 Llamar</a>' : ''),
-        (wa ? '<a href="' + wa + '" target="_blank" class="btn btn-ghost" style="flex:1">💬 WhatsApp</a>' : ''),
-        (mapa ? '<a href="' + mapa + '" target="_blank" class="btn btn-ghost" style="flex:1">📍 Ver en mapa</a>' : ''),
-        '</div>'
-      ].join(''),
+      (function() {
+        // Extraer coordenadas para trazar ruta
+        var rutaBtn = '';
+        var pLat = parseFloat(p.latitude || 0);
+        var pLng = parseFloat(p.longitude || 0);
+        if (!pLat && !pLng && p.link_google_map) {
+          var _c = String(p.link_google_map).split(',');
+          pLat = parseFloat(_c[0] || 0);
+          pLng = parseFloat(_c[1] || 0);
+        }
+        if (pLat && pLng) {
+          rutaBtn = '<button onclick="PWA.Mapa.trazarRuta(' + pLat + ',' + pLng + ')" class="btn btn-ghost" style="flex:1">🧭 Trazar ruta</button>';
+        }
+        return '<div class="panel-action-row" style="margin-bottom:16px">'
+          + (tel ? '<a href="tel:' + tel.replace(/\s+/g, '') + '" class="btn btn-primary" style="flex:1">📞 Llamar</a>' : '')
+          + (wa ? '<a href="' + wa + '" target="_blank" class="btn btn-ghost" style="flex:1">💬 WhatsApp</a>' : '')
+          + rutaBtn
+          + '</div>';
+      })(),
       '<div class="card2" style="margin-bottom:12px">',
         '<div style="font-size:11px;color:var(--pwa-muted);margin-bottom:6px">PRÓXIMA ACTIVIDAD</div>',
         (fechaActividad
@@ -1677,9 +1690,21 @@ PWA.Detalle = {
         '</div></div>',
       '<div style="display:flex;gap:8px;margin-bottom:16px">',
         (tel ? '<a href="tel:' + tel.replace(/\s+/g,'') + '" class="btn btn-ghost" style="flex:1;font-size:13px">📞 Llamar</a>' : ''),
-        (email ? '<a href="mailto:' + email + '" class="btn btn-ghost" style="flex:1;font-size:13px">✉ Email</a>' : ''),
         '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="PWA.NuevaActividad.abrir(\'' + umov + '\',\'' + nombre.replace(/'/g,'') + '\')">+ Actividad</button>',
       '</div>',
+      (function() {
+        var rLat = parseFloat(p.latitude || 0);
+        var rLng = parseFloat(p.longitude || 0);
+        if (!rLat && !rLng && p.link_google_map) {
+          var _rc = String(p.link_google_map).split(',');
+          rLat = parseFloat(_rc[0] || 0);
+          rLng = parseFloat(_rc[1] || 0);
+        }
+        if (rLat && rLng) {
+          return '<button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="PWA.Mapa.trazarRuta(' + rLat + ',' + rLng + ')">🧭 Trazar ruta</button>';
+        }
+        return '';
+      })(),
       (sector ? '<div class="card2" style="margin-bottom:10px"><div style="font-size:11px;color:var(--pwa-muted);margin-bottom:4px">SECTOR</div><div style="font-size:14px">' + sector + '</div></div>' : ''),
       (tel ? '<div class="card2" style="margin-bottom:10px"><div style="font-size:11px;color:var(--pwa-muted);margin-bottom:4px">TELÉFONO</div><div style="font-size:14px">' + tel + '</div></div>' : ''),
       (p.fecha_actividad
