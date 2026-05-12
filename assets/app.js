@@ -4,6 +4,35 @@
 
 var PWA = PWA || {};
 
+/* ── Helper: extraer lat/lng de un prospecto ── */
+PWA.extraerCoords = function(p) {
+  var lat = parseFloat(p.latitude || 0);
+  var lng = parseFloat(p.longitude || 0);
+  if (lat && lng) return { lat: lat, lng: lng };
+
+  var link = String(p.link_google_map || '');
+  if (!link) return null;
+
+  // Formato simple "lat,lng" (ej: "19.4326,-99.1332")
+  var partes = link.split(',');
+  if (partes.length === 2) {
+    lat = parseFloat(partes[0]);
+    lng = parseFloat(partes[1]);
+    if (lat && lng) return { lat: lat, lng: lng };
+  }
+
+  // URL Google Maps: buscar @lat,lng o ?q=lat,lng o /place/lat,lng
+  var m = link.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (!m) m = link.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (!m) m = link.match(/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (m) {
+    lat = parseFloat(m[1]);
+    lng = parseFloat(m[2]);
+    if (lat && lng) return { lat: lat, lng: lng };
+  }
+  return null;
+};
+
 /* ── Estado global ── */
 PWA.session = {};
 PWA.state = {
@@ -264,17 +293,10 @@ function renderDetalle(p) {
       '<p style="margin:0 0 4px;color:var(--pwa-muted)">' + (tel || 'Sin teléfono') + '</p>',
       '<p style="margin:0 0 20px;color:var(--pwa-muted)">' + (p.email || 'Sin email') + '</p>',
       (function() {
-        // Extraer coordenadas para trazar ruta
         var rutaBtn = '';
-        var pLat = parseFloat(p.latitude || 0);
-        var pLng = parseFloat(p.longitude || 0);
-        if (!pLat && !pLng && p.link_google_map) {
-          var _c = String(p.link_google_map).split(',');
-          pLat = parseFloat(_c[0] || 0);
-          pLng = parseFloat(_c[1] || 0);
-        }
-        if (pLat && pLng) {
-          rutaBtn = '<button onclick="PWA.Mapa.trazarRuta(' + pLat + ',' + pLng + ')" class="btn btn-ghost" style="flex:1">🧭 Trazar ruta</button>';
+        var coords = PWA.extraerCoords(p);
+        if (coords) {
+          rutaBtn = '<button onclick="PWA.Mapa.trazarRuta(' + coords.lat + ',' + coords.lng + ')" class="btn btn-ghost" style="flex:1">🧭 Trazar ruta</button>';
         }
         return '<div class="panel-action-row" style="margin-bottom:16px">'
           + (tel ? '<a href="tel:' + tel.replace(/\s+/g, '') + '" class="btn btn-primary" style="flex:1">📞 Llamar</a>' : '')
@@ -1693,15 +1715,9 @@ PWA.Detalle = {
         '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="PWA.NuevaActividad.abrir(\'' + umov + '\',\'' + nombre.replace(/'/g,'') + '\')">+ Actividad</button>',
       '</div>',
       (function() {
-        var rLat = parseFloat(p.latitude || 0);
-        var rLng = parseFloat(p.longitude || 0);
-        if (!rLat && !rLng && p.link_google_map) {
-          var _rc = String(p.link_google_map).split(',');
-          rLat = parseFloat(_rc[0] || 0);
-          rLng = parseFloat(_rc[1] || 0);
-        }
-        if (rLat && rLng) {
-          return '<button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="PWA.Mapa.trazarRuta(' + rLat + ',' + rLng + ')">🧭 Trazar ruta</button>';
+        var coords = PWA.extraerCoords(p);
+        if (coords) {
+          return '<button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="PWA.Mapa.trazarRuta(' + coords.lat + ',' + coords.lng + ')">🧭 Trazar ruta</button>';
         }
         return '';
       })(),

@@ -143,6 +143,27 @@
       this.recalcularTotalesB();
       this.recalcularTotalesC();
       this.cargarImagenesA();
+      this.cargarUnidadesNegocio();
+    },
+
+    cargarUnidadesNegocio: function() {
+      var self = this;
+      var sel = document.getElementById('wc_tagref');
+      if (!sel) return;
+      // Consultar locations disponibles
+      self.api({ option: 'TraerUnidadesNegocioPWA' }, function(err, data) {
+        if (err || !data || !data.result || !data.contenido || !data.contenido.length) {
+          sel.innerHTML = '<option value="">Sin unidades disponibles</option>';
+          return;
+        }
+        var html = '<option value="">-- Selecciona --</option>';
+        var presel = self._tagrefActual || '';
+        data.contenido.forEach(function(u) {
+          var selected = (String(u.tagref) === String(presel)) ? ' selected' : '';
+          html += '<option value="' + self.e(u.tagref) + '"' + selected + '>' + self.e(u.tagref + ' - ' + u.loccode) + '</option>';
+        });
+        sel.innerHTML = html;
+      });
     },
 
     cargarImagenesA: function() {
@@ -260,9 +281,11 @@
       var orderno = (d.cotizaciones && d.cotizaciones[0] && d.cotizaciones[0].orderno) ? d.cotizaciones[0].orderno : '';
       var tagref = (d.cotizaciones && d.cotizaciones[0] && d.cotizaciones[0].tagref) ? d.cotizaciones[0].tagref : '';
       var condiciones = (d.pdftemplates && d.pdftemplates[0] && d.pdftemplates[0].consulta) ? d.pdftemplates[0].consulta : '';
+      // Guardar el tagref actual para preseleccionar después de cargar las opciones
+      this._tagrefActual = tagref;
       return [
         '<div class="form-group"><label class="form-label">OrderNo (si existe)</label><input id="wc_orderno" class="form-input" value="' + this.e(orderno) + '"></div>',
-        '<div class="form-group"><label class="form-label">Unidad negocio</label><input id="wc_tagref" class="form-input" value="' + this.e(tagref) + '" placeholder="Ej: 1"></div>',
+        '<div class="form-group"><label class="form-label">Unidad de negocio</label><select id="wc_tagref" class="form-input"><option value="">Cargando...</option></select></div>',
         '<div class="card2 wizard-card-soft">',
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">',
             '<div style="font-size:12px;color:var(--pwa-muted)">Productos Etapa C</div>',
@@ -727,7 +750,8 @@
 
       this.api(payload, function(err, data) {
         if (err || !data || !data.result) {
-          PWA.toast('Error al guardar Etapa C', 'warn');
+          var msg = (data && data.msjError) ? data.msjError : 'Error al guardar Etapa C';
+          PWA.toast(msg, 'warn');
           return;
         }
         PWA.toast('Etapa C guardada ✓', 'ok');

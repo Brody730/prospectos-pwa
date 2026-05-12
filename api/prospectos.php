@@ -1,6 +1,24 @@
 <?php
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
+
+// ── Shutdown handler: atrapar fatals que el try/catch no puede ──
+register_shutdown_function(function() {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR))) {
+        // Si ya se envio algo, no pisar
+        if (headers_sent()) return;
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(array(
+            'result'   => false,
+            'msjError' => 'Fatal PHP: ' . $err['message']
+                        . ' en ' . basename($err['file']) . ':' . $err['line'],
+            'contenido' => array()
+        ));
+    }
+});
+
 ob_start();
 
 session_start();
@@ -353,6 +371,25 @@ if ($option == 'DebugVendedoresPWA') {
     exit;
 }
 
+if ($option == 'TraerUnidadesNegocioPWA') {
+    $sqlU = "SELECT tagref, loccode
+             FROM locations
+             WHERE loccode != ''
+             ORDER BY tagref";
+    $resU = ProspectosEjecutarConsulta($sqlU, $db, 'TraerUnidadesNegocioPWA');
+    $unidades = array();
+    if ($resU) {
+        while ($row = DB_fetch_array($resU)) {
+            $unidades[] = array(
+                'tagref'  => $row['tagref'],
+                'loccode' => $row['loccode']
+            );
+        }
+    }
+    echo json_encode(array('result' => true, 'contenido' => $unidades, 'msjError' => ''));
+    exit;
+}
+
 if ($option == 'TraerFuentesContactoPWA') {
     $sqlF = "SELECT CustLeadSourceId, CustLeadSourceNom
              FROM Custleadsource
@@ -389,6 +426,71 @@ if (in_array($option, array(
     'AutorizarCotizacion'
 ))) {
     $_POST = array_merge($_POST, $input);
+
+    // ── Pre-validación Etapa C: el modelo legacy crashea si tagref no existe en locations ──
+    if ($option === 'GuardarEtapaC' || $option === 'ModificarEtapaC') {
+        $tagVal = isset($_POST['cmbUnidadesNegocio']) ? trim($_POST['cmbUnidadesNegocio']) : '';
+
+        // Si tagref vacío o "0", intentar resolverlo desde la cotización existente
+        if ($tagVal === '' || $tagVal === '0') {
+            $ordNoCheck = isset($_POST['txtIdOrderNo']) ? trim($_POST['txtIdOrderNo']) : '';
+            $resolved = false;
+
+            if ($ordNoCheck !== '') {
+                $ordEsc = DB_escape_string($ordNoCheck, $db);
+                $sqlTag = "SELECT s.tagref, l.loccode
+                           FROM salesorders s
+                           LEFT JOIN locations l ON s.tagref = l.tagref
+                           WHERE s.orderno = '" . $ordEsc . "' LIMIT 1";
+                $resTag = ProspectosEjecutarConsulta($sqlTag, $db, 'EtapaC-resolveTagref');
+                if ($resTag) {
+                    $rowTag = DB_fetch_array($resTag);
+                    if ($rowTag && !empty($rowTag['tagref'])) {
+                        $_POST['cmbUnidadesNegocio'] = $rowTag['tagref'];
+                        $resolved = true;
+                        error_log('[PWA EtapaC] tagref resuelto desde salesorder: ' . $rowTag['tagref']);
+                    }
+                }
+            }
+
+            // Si no se resolvió, buscar el primer tagref válido como fallback
+            if (!$resolved) {
+                $sqlFb = "SELECT tagref FROM locations WHERE loccode != '' ORDER BY tagref LIMIT 1";
+                $resFb = ProspectosEjecutarConsulta($sqlFb, $db, 'EtapaC-fallbackTagref');
+                if ($resFb) {
+                    $rowFb = DB_fetch_array($resFb);
+                    if ($rowFb && !empty($rowFb['tagref'])) {
+                        $_POST['cmbUnidadesNegocio'] = $rowFb['tagref'];
+                        $resolved = true;
+                        error_log('[PWA EtapaC] tagref fallback: ' . $rowFb['tagref']);
+                    }
+                }
+            }
+
+            if (!$resolved) {
+                echo json_encode(array(
+                    'result'   => false,
+                    'contenido'=> array(),
+                    'msjError' => 'No se encontró unidad de negocio válida. Selecciona una antes de guardar.'
+                ));
+                exit;
+            }
+        } else {
+            // Verificar que el tagref enviado exista en locations
+            $tagEsc = DB_escape_string($tagVal, $db);
+            $sqlChk = "SELECT tagref FROM locations WHERE tagref = '" . $tagEsc . "' LIMIT 1";
+            $resChk = ProspectosEjecutarConsulta($sqlChk, $db, 'EtapaC-checkTagref');
+            if (!$resChk || !DB_fetch_array($resChk)) {
+                error_log('[PWA EtapaC] tagref inválido: ' . $tagVal);
+                echo json_encode(array(
+                    'result'   => false,
+                    'contenido'=> array(),
+                    'msjError' => 'La unidad de negocio "' . $tagVal . '" no existe. Verifica el valor.'
+                ));
+                exit;
+            }
+        }
+    }
 
     // Logging diagnostico: capturar lo que el modelo emite y tambien lo que queda
     // en las variables $result / $msjError del modelo legacy.

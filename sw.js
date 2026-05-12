@@ -2,7 +2,7 @@
    Service Worker — PWA Prospectos ROGMAI
    ============================================================ */
 
-var CACHE_NAME = 'prospectos-v3';
+var CACHE_NAME = 'prospectos-v4';
 
 // Assets estaticos que DEBEN cachearse (si falla alguno, falla el install)
 var ASSETS_CORE = [
