@@ -24,9 +24,12 @@ ob_start();
 session_start();
 
 $PathPrefix = '/var/www/html/erpdistribucion/';
-include($PathPrefix . 'config.php');
-include($PathPrefix . 'includes/ConnectDB.inc');
-include($PathPrefix . 'includes/SQL_CommonFunctions.inc');
+include_once($PathPrefix . 'config.php');
+include_once($PathPrefix . 'includes/ConnectDB.inc');
+include_once($PathPrefix . 'includes/SQL_CommonFunctions.inc');
+// Includes adicionales que el modelo legacy necesita (GuardarEtapaC / ModificarEtapaC)
+include_once($PathPrefix . 'includes/DateFunctions.inc');
+include_once($PathPrefix . 'includes/DefineSalesOrderItemsFast.inc');
 
 ob_end_clean();
 header('Content-Type: application/json');
