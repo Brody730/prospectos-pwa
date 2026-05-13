@@ -2,7 +2,7 @@
    Service Worker — PWA Prospectos ROGMAI
    ============================================================ */
 
-var CACHE_NAME = 'prospectos-v4';
+var CACHE_NAME = 'prospectos-v5';
 
 // Assets estaticos que DEBEN cachearse (si falla alguno, falla el install)
 var ASSETS_CORE = [
@@ -11,6 +11,7 @@ var ASSETS_CORE = [
   '/prospectos/assets/app.js',
   '/prospectos/assets/sync.js',
   '/prospectos/assets/wizard-prospecto.js',
+  '/prospectos/assets/tour.js',
   '/prospectos/assets/map.js',
   '/prospectos/install-prompt.js',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',

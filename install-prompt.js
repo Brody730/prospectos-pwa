@@ -28,6 +28,8 @@
   window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
     deferredPrompt = e;
+    // Exponer para el boton de Perfil
+    window._pwaInstallPrompt = e;
     // Actualizar boton si el banner ya esta visible
     var btn = document.getElementById('pwa-install-btn');
     if (btn) {

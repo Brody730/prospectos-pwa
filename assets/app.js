@@ -98,6 +98,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Navegar a panel inicial
   PWA.navegarA('panel');
+
+  // Tour de onboarding — primera vez
+  setTimeout(function() {
+    if (typeof PWATour !== 'undefined' && !PWATour.yaCompletado()) {
+      PWATour.iniciar();
+    }
+  }, 1200);
 });
 
 window.addEventListener('scroll', function() {
@@ -2757,10 +2764,27 @@ PWA.Perfil = {
     html += '<button id="btnActualizarApp" class="btn btn-primary btn-full" onclick="PWA.Perfil.actualizarApp()">🔄 Actualizar app</button>';
     html += '</div>';
 
+    // ── Instalar app (si no está instalada) ──
+    var yaInstalada = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (!yaInstalada) {
+      html += '<p class="section-title">Instalación</p>';
+      html += '<div class="card">';
+      html += '<div id="perfilInstalarEstado" style="font-size:13px;color:var(--pwa-muted);line-height:1.6;margin-bottom:12px">Instala la app en tu dispositivo para acceso rapido desde la pantalla de inicio.</div>';
+      html += '<button id="btnInstalarApp" class="btn btn-primary btn-full" onclick="PWA.Perfil.instalarApp()">📲 Instalar app</button>';
+      html += '</div>';
+    }
+
+    // ── Tour de ayuda ──
+    html += '<p class="section-title">Ayuda</p>';
+    html += '<div class="card">';
+    html += '<div style="font-size:13px;color:var(--pwa-muted);line-height:1.6;margin-bottom:12px">Recorre las funciones principales de la app con un tour guiado.</div>';
+    html += '<button class="btn btn-primary btn-full" onclick="PWA.Perfil.iniciarTour()">🎓 Ver tour de la app</button>';
+    html += '</div>';
+
     html += '<p class="section-title">Información</p>';
     html += '<div class="card">';
     html += '<div style="font-size:13px;color:var(--pwa-muted);line-height:1.8">';
-    html += 'Versión: <strong style="color:var(--pwa-text)">1.0</strong><br>';
+    html += 'Versión: <strong style="color:var(--pwa-text)">1.1</strong><br>';
     html += 'Conexión: <strong id="estadoConexion" style="color:var(--pwa-accent2)">' + (navigator.onLine ? 'En línea' : 'Sin conexión') + '</strong>';
     html += '</div></div>';
 
@@ -2860,6 +2884,46 @@ PWA.Perfil = {
 
       Promise.all(pasos).then(reloadDuro).catch(reloadDuro);
     }).catch(reloadDuro);
+  },
+
+  iniciarTour: function() {
+    if (typeof PWATour !== 'undefined') {
+      PWATour.reiniciar();
+    } else {
+      PWA.toast('Tour no disponible', 'warn');
+    }
+  },
+
+  instalarApp: function() {
+    var btn = document.getElementById('btnInstalarApp');
+    var est = document.getElementById('perfilInstalarEstado');
+
+    // Verificar si hay un deferredPrompt capturado (Chrome/Edge)
+    if (window._pwaInstallPrompt) {
+      window._pwaInstallPrompt.prompt();
+      window._pwaInstallPrompt.userChoice.then(function(result) {
+        window._pwaInstallPrompt = null;
+        if (result.outcome === 'accepted') {
+          if (btn) btn.textContent = 'Instalada';
+          if (btn) btn.disabled = true;
+          if (est) est.textContent = 'La app se instalo correctamente.';
+          PWA.toast('App instalada', 'ok');
+        }
+      });
+      return;
+    }
+
+    // iOS Safari
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (isIOS) {
+      if (est) est.innerHTML = 'Toca el boton <strong style="color:var(--pwa-primary)">Compartir</strong> ↑ en Safari y luego <strong style="color:var(--pwa-primary)">"Agregar a pantalla de inicio"</strong>.';
+      if (btn) btn.style.display = 'none';
+      return;
+    }
+
+    // Android/Chrome sin prompt capturado
+    if (est) est.innerHTML = 'Toca el menu <strong style="color:var(--pwa-primary)">⋮</strong> del navegador y selecciona <strong style="color:var(--pwa-primary)">"Instalar app"</strong> o <strong style="color:var(--pwa-primary)">"Añadir a pantalla de inicio"</strong>.';
+    if (btn) btn.style.display = 'none';
   }
 };
 
