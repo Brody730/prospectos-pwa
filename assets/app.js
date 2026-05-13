@@ -96,8 +96,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }, 2000);
 
-  // Navegar a panel inicial
-  PWA.navegarA('panel');
+  // Verificar si viene de un shortcut con ?action=
+  var urlParams = new URLSearchParams(window.location.search);
+  var accionInicial = urlParams.get('action');
+
+  if (accionInicial === 'nuevo') {
+    PWA.navegarA('lista');
+    setTimeout(function() { PWA.NuevoProspecto.abrir(); }, 600);
+  } else if (accionInicial === 'agenda') {
+    PWA.navegarA('agenda');
+  } else if (accionInicial === 'mapa') {
+    PWA.navegarA('mapa');
+  } else {
+    PWA.navegarA('panel');
+  }
+
+  // Limpiar el param del URL sin recargar
+  if (accionInicial && window.history.replaceState) {
+    var cleanUrl = window.location.pathname;
+    window.history.replaceState({}, '', cleanUrl);
+  }
 
   // Tour de onboarding — primera vez
   setTimeout(function() {
@@ -2913,17 +2931,49 @@ PWA.Perfil = {
       return;
     }
 
-    // iOS Safari
-    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    // Detectar navegador para instrucciones específicas
+    var ua = navigator.userAgent;
+    var isIOS = /iphone|ipad|ipod/i.test(ua);
+    var isBrave = (navigator.brave && navigator.brave.isBrave) || false;
+    var isSamsung = /SamsungBrowser/i.test(ua);
+    var isFirefox = /Firefox/i.test(ua) && !/Seamonkey/i.test(ua);
+    var isChrome = /Chrome/i.test(ua) && !/Brave|Edge|OPR|Samsung/i.test(ua);
+
+    var instrucciones = '';
+
     if (isIOS) {
-      if (est) est.innerHTML = 'Toca el boton <strong style="color:var(--pwa-primary)">Compartir</strong> ↑ en Safari y luego <strong style="color:var(--pwa-primary)">"Agregar a pantalla de inicio"</strong>.';
-      if (btn) btn.style.display = 'none';
-      return;
+      instrucciones = '<div style="text-align:center">'
+        + '<div style="font-size:28px;margin-bottom:8px">↑</div>'
+        + 'Toca el boton <strong style="color:var(--pwa-primary)">Compartir</strong> en la barra de Safari<br>'
+        + 'y luego <strong style="color:var(--pwa-primary)">"Agregar a pantalla de inicio"</strong>'
+        + '</div>';
+    } else if (isBrave) {
+      instrucciones = '<div style="text-align:center">'
+        + '<div style="font-size:20px;margin-bottom:6px">🦁</div>'
+        + 'En <strong style="color:var(--pwa-primary)">Brave</strong>, toca el menu <strong style="color:var(--pwa-primary)">⋮</strong> arriba a la derecha<br>'
+        + 'y selecciona <strong style="color:var(--pwa-primary)">"Instalar app"</strong><br>'
+        + '<span style="font-size:11px;color:var(--pwa-muted);margin-top:6px;display:block">Si no aparece, intenta con Chrome para instalacion directa</span>'
+        + '</div>';
+    } else if (isSamsung) {
+      instrucciones = '<div style="text-align:center">'
+        + 'Toca el menu <strong style="color:var(--pwa-primary)">☰</strong> y selecciona<br>'
+        + '<strong style="color:var(--pwa-primary)">"Añadir pagina a" → Pantalla de inicio</strong>'
+        + '</div>';
+    } else if (isFirefox) {
+      instrucciones = '<div style="text-align:center">'
+        + 'Toca el menu <strong style="color:var(--pwa-primary)">⋮</strong> y selecciona<br>'
+        + '<strong style="color:var(--pwa-primary)">"Instalar"</strong>'
+        + '</div>';
+    } else {
+      instrucciones = '<div style="text-align:center">'
+        + 'Toca el menu <strong style="color:var(--pwa-primary)">⋮</strong> del navegador<br>'
+        + 'y selecciona <strong style="color:var(--pwa-primary)">"Instalar app"</strong><br>'
+        + 'o <strong style="color:var(--pwa-primary)">"Añadir a pantalla de inicio"</strong>'
+        + '</div>';
     }
 
-    // Android/Chrome sin prompt capturado
-    if (est) est.innerHTML = 'Toca el menu <strong style="color:var(--pwa-primary)">⋮</strong> del navegador y selecciona <strong style="color:var(--pwa-primary)">"Instalar app"</strong> o <strong style="color:var(--pwa-primary)">"Añadir a pantalla de inicio"</strong>.';
-    if (btn) btn.style.display = 'none';
+    if (est) est.innerHTML = instrucciones;
+    if (btn) { btn.textContent = 'Entendido'; btn.onclick = function() { PWA.toast('Sigue las instrucciones para instalar', 'ok'); }; }
   }
 };
 
