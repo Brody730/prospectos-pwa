@@ -15,7 +15,7 @@ Estoy construyendo una PWA mobile-first para vendedores de campo para operar sin
 
 ```bash
 # Máquina local (VS Code)
-~/Escritorio/prospectos-pwa/
+/home/jozet/desktop/erp/pwa-app
 
 # Servidor producción
 /var/www/html/erpdistribucion/   # ERP legacy (NO TOCAR)
