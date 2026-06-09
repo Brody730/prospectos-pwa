@@ -431,6 +431,7 @@ $sessionData = json_encode(array(
   <script src="assets/sync.js"></script>
   <script src="assets/map.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/visitas.js?v=20260608"></script>
   <script src="assets/wizard-prospecto.js"></script>
   <script src="assets/tour.js"></script>
   <script src="install-prompt.js"></script>
