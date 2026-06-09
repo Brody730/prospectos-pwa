@@ -49,10 +49,10 @@ PATCHES = [
         if (done < 2) return;
         if (totalV === 0 && totalP === 0) { el.innerHTML = ''; return; }
         var html = '<div class="panel-feature-card panel-alert-card" style="border-color:#f59e0b44;background:#1a150a;margin-bottom:12px">';
-        html += '<div class="panel-alert-title" style="color:#f59e0b">\uD83D\uDD14 Pendientes de aprobaci\u00f3n</div>';
-        if (totalV > 0) html += '<div style="font-size:13px;color:var(--pwa-muted);margin:4px 0">\u2022 ' + totalV + ' visita' + (totalV !== 1 ? 's' : '') + ' en sitio</div>';
-        if (totalP > 0) html += '<div style="font-size:13px;color:var(--pwa-muted);margin:4px 0">\u2022 ' + totalP + ' prospecto' + (totalP !== 1 ? 's' : '') + ' nuevo' + (totalP !== 1 ? 's' : '') + '</div>';
-        html += '<button class="btn btn-ghost btn-full" style="margin-top:8px;border-color:#f59e0b55;color:#f59e0b" onclick="PWA.navegarA(\'perfil\')">Revisar aprobaciones \u2192</button>';
+        html += '<div class="panel-alert-title" style="color:#f59e0b"> Pendientes de aprobación</div>';
+        if (totalV > 0) html += '<div style="font-size:13px;color:var(--pwa-muted);margin:4px 0">• ' + totalV + ' visita' + (totalV !== 1 ? 's' : '') + ' en sitio</div>';
+        if (totalP > 0) html += '<div style="font-size:13px;color:var(--pwa-muted);margin:4px 0">• ' + totalP + ' prospecto' + (totalP !== 1 ? 's' : '') + ' nuevo' + (totalP !== 1 ? 's' : '') + '</div>';
+        html += '<button class="btn btn-ghost btn-full" style="margin-top:8px;border-color:#f59e0b55;color:#f59e0b" onclick="PWA.navegarA(\'perfil\')">Revisar aprobaciones →</button>';
         html += '</div>';
         el.innerHTML = html;
       }
@@ -78,7 +78,7 @@ PATCHES = [
         var aprobada = v.estado === 'aprobada';
         var color = aprobada ? '#34d399' : '#f87171';
         var bg    = aprobada ? '#0d2a1a' : '#2a0d0d';
-        var icono = aprobada ? '\u2713' : '\u2717';
+        var icono = aprobada ? '✓' : '✗';
         var nombre = v.nombre_prospecto || 'tu prospecto';
         var html = '<div class="panel-feature-card" style="border:0.5px solid ' + color + '44;background:' + bg + ';margin-bottom:12px">';
         html += '<div style="font-size:13px;font-weight:600;color:' + color + '">' + icono + ' Visita ' + v.estado + '</div>';
