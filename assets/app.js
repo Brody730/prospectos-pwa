@@ -790,7 +790,7 @@ PWA.Notificaciones = {
         html += '<div class="panel-alert-title" style="color:#f59e0b"> Pendientes de aprobación</div>';
         if (totalV > 0) html += '<div style="font-size:13px;color:var(--pwa-muted);margin:4px 0">• ' + totalV + ' visita' + (totalV !== 1 ? 's' : '') + ' en sitio</div>';
         if (totalP > 0) html += '<div style="font-size:13px;color:var(--pwa-muted);margin:4px 0">• ' + totalP + ' prospecto' + (totalP !== 1 ? 's' : '') + ' nuevo' + (totalP !== 1 ? 's' : '') + '</div>';
-        html += '<button class="btn btn-ghost btn-full" style="margin-top:8px;border-color:#f59e0b55;color:#f59e0b" onclick="PWA.navegarA(\'perfil\')">Revisar aprobaciones →</button>';
+        html += '<button class="btn btn-ghost btn-full" style="margin-top:8px;border-color:#f59e0b55;color:#f59e0b" onclick="PWA.navegarA('perfil')">Revisar aprobaciones →</button>';
         html += '</div>';
         el.innerHTML = html;
       }
@@ -2605,6 +2605,16 @@ PWA.Agenda = {
         var esVisitaSitio = (a.tipo_actividad || '').toLowerCase().indexOf('visita en sitio') !== -1;
         if (esVisitaSitio && uTask) {
           html += PWA.Visitas.renderBtnConfirmar(a);
+        }
+        // FIX 2026-06-09: boton Llamar en tarjetas de tipo Llamada Telefonica
+        var esLlamada = (a.tipo_actividad || '').toLowerCase().indexOf('llamada') !== -1;
+        var telAgenda = (a.phoneno || '').replace(/\s+/g, '');
+        if (esLlamada && telAgenda) {
+          html += '<div style="margin-top:6px" onclick="event.stopPropagation()">';
+          html += '<a href="tel:' + telAgenda + '" class="btn btn-primary"'
+            + ' style="padding:5px 12px;font-size:11px;min-height:0;width:100%"'
+            + '>Llamar  ' + (a.phoneno || '') + '</a>';
+          html += '</div>';
         }
         html += '</div>';
         if (uTask) {
