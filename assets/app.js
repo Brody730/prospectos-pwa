@@ -2406,6 +2406,10 @@ PWA.NuevoProspecto = {
       }
       var uMov = data.result;
       PWA.toast('Prospecto #' + uMov + ' creado ✓', 'ok');
+      // FIX 2026-06-08: solicitar aprobacion del supervisor
+      if (typeof PWA.Aprobacion !== 'undefined') {
+        PWA.Aprobacion.notificarNuevoProspecto(uMov, nombre);
+      }
       self.cerrar();
       if (PWA.Lista && typeof PWA.Lista.cargar === 'function') PWA.Lista.cargar();
       setTimeout(function() {
@@ -2811,6 +2815,14 @@ PWA.Perfil = {
     html += 'Conexión: <strong id="estadoConexion" style="color:var(--pwa-accent2)">' + (navigator.onLine ? 'En línea' : 'Sin conexión') + '</strong>';
     html += '</div></div>';
 
+    // FIX 2026-06-08: seccion supervisor — solo visible para admin
+    if (PWA.session.userid === 'admin') {
+      html += '<p class="section-title">Supervisión — Visitas pendientes</p>';
+      html += '<div id="perfil-visitas-pendientes"><div class="spinner"></div></div>';
+      html += '<p class="section-title" style="margin-top:16px">Supervisión — Prospectos nuevos</p>';
+      html += '<div id="perfil-prospectos-pendientes"><div class="spinner"></div></div>';
+    }
+
     html += '<div style="margin-top:24px">';
     html += '<button onclick="PWA.cerrarSesion()" class="btn btn-ghost btn-full" style="color:var(--pwa-danger)">Cerrar sesión</button>';
     html += '</div>';
@@ -2823,6 +2835,12 @@ PWA.Perfil = {
     });
 
     PWA.Perfil.actualizarEstadoNotificaciones();
+
+    // FIX 2026-06-08: cargar colas de aprobacion para admin
+    if (PWA.session.userid === 'admin') {
+      if (typeof PWA.Visitas !== 'undefined')    { PWA.Visitas.cargarPendientes('perfil-visitas-pendientes'); }
+      if (typeof PWA.Aprobacion !== 'undefined') { PWA.Aprobacion.cargarPendientes('perfil-prospectos-pendientes'); }
+    }
   },
 
   actualizarEstadoNotificaciones: function() {
