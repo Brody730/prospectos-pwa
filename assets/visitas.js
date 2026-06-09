@@ -14,6 +14,15 @@ PWA.Visitas = {
     // FIX 2026-06-08: tratar lat/lng == 0 como sin coordenadas (custbranch sin datos)
     var latProsp    = (actividad.latitude  && parseFloat(actividad.latitude)  !== 0) ? actividad.latitude  : '';
     var lngProsp    = (actividad.longitude && parseFloat(actividad.longitude) !== 0) ? actividad.longitude : '';
+    // FIX 2026-06-08b: fallback a link_google_map si custbranch no tiene coords
+    if ((!latProsp || !lngProsp) && actividad.link_google_map) {
+      var _lgm = actividad.link_google_map.split(',');
+      if (_lgm.length >= 2) {
+        var _lgmLat = parseFloat(_lgm[0].trim());
+        var _lgmLng = parseFloat(_lgm[1].trim());
+        if (_lgmLat !== 0 && _lgmLng !== 0) { latProsp = _lgmLat; lngProsp = _lgmLng; }
+      }
+    }
 
     // Serializar los datos de la actividad para el onclick
     var dataAttr = encodeURIComponent(JSON.stringify({
