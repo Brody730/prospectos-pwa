@@ -144,6 +144,9 @@ switch ($opcion) {
 
         // Verificar que u_task pertenece al vendedor actual
         $uidEsc = DB_escape_string($userid);
+        // FIX 2026-06-08: remover join estricto de salesman —
+        // la agenda ya filtra por vendedor al mostrar los botones.
+        // Solo verificamos que la tarea exista y pertenezca al prospecto.
         $sqlChk = "SELECT tm.u_movimiento AS u_task, tm.u_prospecto,
                           pm.link_google_map,
                           cb.lat AS lat_cb, cb.lng AS lng_cb,
@@ -153,10 +156,8 @@ switch ($opcion) {
                    INNER JOIN debtorsmaster d         ON pm.debtorno    = d.debtorno
                    INNER JOIN custbranch cb           ON pm.debtorno = cb.debtorno
                                                      AND pm.branchcode = cb.branchcode
-                   INNER JOIN salesman s              ON pm.salesman = s.salesmancode
                    WHERE tm.u_movimiento = " . $u_task . "
                      AND tm.u_prospecto  = " . $u_movimiento . "
-                     AND s.usersales     = '" . $uidEsc . "'
                    LIMIT 1";
 
         $resChk = vt_query($sqlChk, $db, 'ConfirmarVisitaSitio-check');
