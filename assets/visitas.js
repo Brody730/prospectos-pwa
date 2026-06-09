@@ -11,8 +11,9 @@ PWA.Visitas = {
   renderBtnConfirmar: function(actividad) {
     var uTask       = String(actividad.u_task       || '');
     var uMovimiento = String(actividad.u_movimiento || '');
-    var latProsp    = actividad.latitude  || '';
-    var lngProsp    = actividad.longitude || '';
+    // FIX 2026-06-08: tratar lat/lng == 0 como sin coordenadas (custbranch sin datos)
+    var latProsp    = (actividad.latitude  && parseFloat(actividad.latitude)  !== 0) ? actividad.latitude  : '';
+    var lngProsp    = (actividad.longitude && parseFloat(actividad.longitude) !== 0) ? actividad.longitude : '';
 
     // Serializar los datos de la actividad para el onclick
     var dataAttr = encodeURIComponent(JSON.stringify({
@@ -71,6 +72,7 @@ PWA.Visitas = {
     var distColor    = 'var(--pwa-muted)';
     var distIcono    = '○';
     var gpsOk        = !data._gpsError && data.lat_vendedor;
+    var btnBloqueado = false; // FIX 2026-06-08: true cuando distancia conocida > 500m
 
     if (gpsOk && data.lat_prospecto && data.lng_prospecto) {
       distanciaM = PWA.Visitas._haversineM(
@@ -78,13 +80,15 @@ PWA.Visitas = {
         parseFloat(data.lat_prospecto), parseFloat(data.lng_prospecto)
       );
       if (distanciaM < 500) {
-        distTexto  = distanciaM + ' m — En sitio ✓';
-        distColor  = '#34d399';
-        distIcono  = '✓';
+        distTexto    = distanciaM + ' m — En sitio ✓';
+        distColor    = '#34d399';
+        distIcono    = '✓';
+        btnBloqueado = false;
       } else {
-        distTexto  = distanciaM + ' m del prospecto ⚠';
-        distColor  = '#f59e0b';
-        distIcono  = '⚠';
+        distTexto    = distanciaM + ' m del prospecto — muy lejos';
+        distColor    = '#f87171';
+        distIcono    = '⚠';
+        btnBloqueado = true;
       }
     } else if (data._gpsError) {
       distTexto = 'No se pudo obtener GPS';
@@ -135,10 +139,16 @@ PWA.Visitas = {
       + '<textarea id="visita-comentarios" placeholder="Comentarios de la visita..." '
       + 'style="width:100%;background:var(--pwa-bg);border:0.5px solid var(--pwa-border);border-radius:8px;padding:8px 10px;color:var(--pwa-text);font-size:13px;resize:none;height:70px;margin-bottom:12px;font-family:inherit"></textarea>'
 
-      // Botones
+      // Botones — FIX 2026-06-08: bloquear si lejos
+      + (btnBloqueado
+          ? '<div style="background:#2a0d0d;border:0.5px solid #f8717144;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:#f87171;text-align:center">'
+            + '⚠ Estás a <b>' + distanciaM + 'm</b> del prospecto.<br>Necesitas estar a menos de 500m para confirmar la visita.</div>'
+          : '')
       + '<div style="display:flex;gap:8px">'
       + '<button class="btn btn-ghost" style="padding:10px 16px" onclick="PWA.Visitas.cerrarSheet()">Cancelar</button>'
-      + '<button class="btn btn-primary" style="flex:1;padding:10px" onclick="PWA.Visitas.guardar()">Guardar visita →</button>'
+      + '<button class="btn btn-primary" '
+        + (btnBloqueado ? 'disabled style="flex:1;padding:10px;opacity:0.4;cursor:not-allowed"' : 'style="flex:1;padding:10px"')
+        + ' onclick="PWA.Visitas.guardar()">Guardar visita →</button>'
       + '</div>'
 
       + '</div>'
