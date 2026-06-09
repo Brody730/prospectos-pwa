@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "obsidian": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "obsidian-mcp",
+        "C:\\Users\\Jozet\\Desktop\\Jozet\\jozet"
+      ],
+      "env": {}
+    }
+  }
+}

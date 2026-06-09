@@ -2537,6 +2537,11 @@ PWA.Agenda = {
         html += '<div class="actividad-info">';
         html += '<div class="actividad-titulo">' + titulo + '</div>';
         if (prospecto) html += '<div class="actividad-prospecto">' + prospecto + '</div>';
+        // FIX 2026-06-08: boton Confirmar visita para actividades tipo "Visita en Sitio"
+        var esVisitaSitio = (a.tipo_actividad || '').toLowerCase().indexOf('visita en sitio') !== -1;
+        if (esVisitaSitio && uTask) {
+          html += PWA.Visitas.renderBtnConfirmar(a);
+        }
         html += '</div>';
         if (uTask) {
           html += '<button class="gcal-btn" title="Agregar a Google Calendar" onclick="event.stopPropagation();PWA.abrirGoogleCalendar(PWA.Agenda._mapaActividades[\'' + uTask + '\'])">';

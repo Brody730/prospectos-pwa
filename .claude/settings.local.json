@@ -18,7 +18,13 @@
       "Bash(flatpak-spawn --host bash -c \"cd ~/Escritorio/prospectos-pwa && git log origin/main --oneline -5 2>&1\")",
       "Bash(flatpak-spawn --host bash -c \"cd ~/Escritorio/prospectos-pwa && git config credential.https://github.com.helper '!~/.local/bin/gh auth git-credential' && git push origin main 2>&1\")",
       "Bash(flatpak-spawn --host bash -c \"cat /var/www/html/erpdistribucion/modelo/ProspectV2Modelo.php 2>/dev/null | grep -A 40 'GuardarAdjuntos\\\\|imagenesconvertidas\\\\|file_put_contents\\\\|images/prospectos'\")",
-      "Bash(flatpak-spawn --host bash -c \"cd ~/Escritorio/prospectos-pwa && git push origin main 2>&1\")"
+      "Bash(flatpak-spawn --host bash -c \"cd ~/Escritorio/prospectos-pwa && git push origin main 2>&1\")",
+      "mcp__obsidian__list-available-vaults",
+      "mcp__obsidian__read-note",
+      "mcp__obsidian__edit-note"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "obsidian"
+  ]
 }
