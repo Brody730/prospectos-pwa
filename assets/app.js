@@ -790,7 +790,7 @@ PWA.Notificaciones = {
         html += '<div class="panel-alert-title" style="color:#f59e0b"> Pendientes de aprobación</div>';
         if (totalV > 0) html += '<div style="font-size:13px;color:var(--pwa-muted);margin:4px 0">• ' + totalV + ' visita' + (totalV !== 1 ? 's' : '') + ' en sitio</div>';
         if (totalP > 0) html += '<div style="font-size:13px;color:var(--pwa-muted);margin:4px 0">• ' + totalP + ' prospecto' + (totalP !== 1 ? 's' : '') + ' nuevo' + (totalP !== 1 ? 's' : '') + '</div>';
-        html += '<button class="btn btn-ghost btn-full" style="margin-top:8px;border-color:#f59e0b55;color:#f59e0b" onclick="PWA.navegarA('perfil')">Revisar aprobaciones →</button>';
+        html += '<button class="btn btn-ghost btn-full" style="margin-top:8px;border-color:#f59e0b55;color:#f59e0b" onclick="PWA.navegarA(\'perfil\')">Revisar aprobaciones →</button>';
         html += '</div>';
         el.innerHTML = html;
       }
